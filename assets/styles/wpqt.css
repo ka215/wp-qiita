@@ -1,0 +1,157 @@
+@font-face {
+	font-family: 'wp-qiita';
+	src:url('../fonts/wp-qiita.eot?2hz8sb');
+	src:url('../fonts/wp-qiita.eot?2hz8sb#iefix') format('embedded-opentype'),
+		url('../fonts/wp-qiita.ttf?2hz8sb') format('truetype'),
+		url('../fonts/wp-qiita.woff?2hz8sb') format('woff'),
+		url('../fonts/wp-qiita.svg?2hz8sb#wp-qiita') format('svg');
+	font-weight: normal;
+	font-style: normal;
+}
+
+[class^="wpqt-"], [class*=" wpqt-"] {
+	font-family: 'wp-qiita';
+	speak: none;
+	font-style: normal;
+	font-weight: normal;
+	font-variant: normal;
+	text-transform: none;
+	line-height: 1;
+
+	/* Better Font Rendering =========== */
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.wpqt-qiita-q:before {
+	content: "\e900";
+}
+.wpqt-qiita-favicon:before {
+	content: "\e901";
+}
+.wpqt-qiita-favicon-color .path1:before {
+	content: "\e902";
+	color: rgb(255, 255, 255);
+}
+.wpqt-qiita-favicon-color .path2:before {
+	content: "\e903";
+	margin-left: -1em;
+	color: rgb(89, 187, 12);
+}
+.wpqt-qiita-favicon-reversal:before {
+	content: "\e904";
+}
+.wpqt-qiita-square:before {
+	content: "\e905";
+}
+
+
+/* -- admin -- */
+body {
+  background-color: transparent;
+}
+
+/* 
+$qiita-primary: #59bb0c;
+$qiita-primary-border: #4ea30a;
+$qiita-primary-active: #428b09;
+$qiita-primary-active-border: #326a07;
+*/
+
+/*
+a, a:link, a:visited { color: #59bb0c; }
+a:hover, a:focus, a:active { color: #428b09; }
+*[class$=primary], *[class$=primary]:link, *[class$=primary]:visited {
+  color: #59bb0c;
+  border-color: #4ea30a;
+}
+*[class$=primary]:hover, *[class$=primary]:focus, *[class$=primary]:active {
+  color: #428b09;
+  border-color: #326a07;
+}
+*/
+
+#messages {
+  position: absolute;
+  display: none;
+  visibilitiy: hidden;
+}
+
+#wp-qiita-options {
+  margin-right: 15px;
+}
+
+.plugin-version {
+  position: absolute;
+  top: 30px;
+  right: 30px;
+}
+
+.plugin-version.label {
+  border-radius: 50px;
+}
+
+.tab-pane {
+  padding: 20px;
+}
+
+.nav-tabs>li.active>a, 
+.nav-tabs>li.active>a:focus, 
+.nav-tabs>li.active>a:hover {
+  background-color: #f0f0f0;
+}
+
+.nav-tabs>li.active>a {
+  color: #59bb0c;
+}
+
+.nav-tabs>li.active>a:focus, 
+.nav-tabs>li.active>a:hover {
+  color: #428b09;
+}
+
+/* Activation */
+.thumbnail .caption {
+  font-size: 12px;
+}
+
+.thumbnail .caption h5 {
+  font-weight: 600;
+}
+
+/* Profile */
+
+/* Items tab */
+#qiita-items th, #qiita-items td {
+  text-align: left;
+  vertical-align: middle;
+}
+
+#qiita-items .item-index {
+  text-align: right;
+}
+
+#qiita-items .item-stocks {
+  min-width: 90px;
+  text-align: right;
+}
+
+#qiita-items .item-sync {
+  min-width: 100px;
+  text-align: center;
+}
+
+#qiita-items .item-coediting, #qiita-items .item-private {
+  text-align: center;
+}
+
+/* Extra tab */
+#icon-fonts th, #icon-fonts td {
+  text-align: left;
+  vertical-align: middle;
+}
+
+#icon-fonts .icon-view {
+  min-width: 60px;
+  text-align: center;
+}
