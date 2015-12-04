@@ -98,6 +98,7 @@ final class WpQiitaMain extends WpQiitaUtils {
     add_action( 'init', array( $this, 'wpqt_init' ) );
     add_action( 'widget_init', array( $this, 'wpqt_widget' ) );
     add_action( 'wp_loaded', array( $this, 'wpqt_wp_loaded' ) ); // Fired once WordPress, all plugins, and the theme are fully loaded
+    add_action( 'wp-qiita/autosync', array( $this, 'wpqt_autosync' ) ); // Add New Action
     
     if (is_admin()) {
       add_action( 'admin_menu', array( $this, 'wpqt_admin_menu' ) );
@@ -184,31 +185,36 @@ final class WpQiitaMain extends WpQiitaUtils {
   }
   
   public function wpqt_enqueue_scripts() {
+    $load_wpqt_assets = false;
+    if ( is_admin() && array_key_exists('page', $this->query) && 'wp-qiita-options' === $this->query['page'] ) {
+      $load_wpqt_assets = true;
+/*
+    } else
+    if ( ! is_admin() && shortcode_exist() ) {
+      $load_wpqt_assets = true;
+*/
+    }
+    if ( ! $load_wpqt_assets ) 
+      return;
+    
     // Load this plugin assets
+    wp_deregister_script( 'jquery' );
     $assets = array(
       'styles' => array(
         'bootstrap-style-cdn' => array( '//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css', array(), '3.3.5', 'all' ), 
         'wpqt-style' => array( $this->plugin_dir_url . 'assets/styles/wpqt.css', array(), $this->version, 'all' ), 
       ), 
       'scripts' => array(
-        'jquery-cdn' => array( '//ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js', array(), '1.11.3', true ), 
-        'bootstrap-script-cdn' => array( '//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js', array(), '3.3.5', true ), 
+        'jquery-cdn' => array( '//ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js', array(), '1.11.3', false ), 
+        'bootstrap-script-cdn' => array( '//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js', array('jquery-cdn'), '3.3.5', true ), 
         'blockchain' => array( 'https://blockchain.info/Resources/wallet/pay-now-button.js', array('jquery-cdn'), null, true ), 
-        'wpqt-script' => array( $this->plugin_dir_url . 'assets/scripts/wpqt.js', array(), $this->version, true ), 
+        'wpqt-script' => array( $this->plugin_dir_url . 'assets/scripts/wpqt.js', array('jquery-cdn'), $this->version, true ), 
       )
     );
     // Filter the assets to be importing in page (before registration)
     //
     // @since 1.0.0
     $assets = apply_filters( 'wp-qiita/enqueue_assets', $assets, $this->query );
-    
-    if (is_admin()) {
-      if ( array_key_exists('page', $this->query) && 'wp-qiita-options' === $this->query['page'] ) {
-        wp_deregister_script('jquery');
-      } else {
-        unset( $assets['styles']['bootstrap-style-cdn'], $assets['scripts']['jquery'], $assets['scripts']['bootstrap-script-cdn'], $assets['scripts']['blockchain'] );
-      }
-    }
     
     foreach ($assets as $asset_type => $asset_data) {
       if ('styles' === $asset_type) {
@@ -655,6 +661,100 @@ final class WpQiitaMain extends WpQiitaUtils {
   }
   
   /**
+   * Tab: activation / Action: advanced_setting
+   *
+   * @since 1.0.0
+   */
+  public function do_activation_advanced_setting() {
+    $_message_type = $this->message_type['err'];
+    $_message = null;
+    
+    $submit_data = $this->validate_submit_data();
+    $adv_options = $submit_data[$this->domain_name];
+    foreach ( $adv_options as $_key => $_val ) {
+      // for boolean var
+      if ( in_array( $_key, array( 'autosync', 'autopost' ) ) ) 
+        $adv_options[$_key] = wp_validate_boolean( $_val );
+    }
+    if ( intval( $adv_options['autosync_interval'] ) < 1 ) {
+      $adv_options['autosync_interval'] = 86400; // 60 * 60 * 24 = 1day
+    }
+    
+    $current_user_meta = get_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', true );
+    if ( is_array( $current_user_meta ) ) {
+      if ( $adv_options['autosync'] ) {
+        if ( isset( $current_user_meta['autosync_interval'] ) && intval( $adv_options['autosync_interval'] ) !== intval( $current_user_meta['autosync_interval'] ) ) {
+          // Update of autosync schedule
+          $adv_options['autosync_hash'] = $this->set_autosync_schedule( $submit_data['user_id'], intval( $adv_options['autosync_interval'] ) );
+          $adv_options['autosync_datetime'] = wp_next_scheduled( 'wpqt/autosync', array( $submit_data['user_id'], $adv_options['autosync_hash'] ) );
+        }
+      } else {
+        // Stop of autosync
+        // $this->update_autosync_schedule( 0 );
+      }
+      $_new_user_meta = array_merge( $current_user_meta, $adv_options );
+      
+      if ( update_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', $_new_user_meta ) ) {
+        // Success
+        $_message = __('Configuration has been changed successfully.', $this->domain_name);
+        $_message_type = $this->message_type['note'];
+      } else {
+        // Fails
+        $_message = __('Configuration changes did not take place.', $this->domain_name);
+      }
+    }
+    
+    if (!empty($_message)) 
+      $this->register_admin_notices( $_message_type, $_message, 1, true );
+    
+    return;
+  }
+  
+  
+  /**
+   * Tab: profile / Action: sync_description
+   *
+   * @since 1.0.0
+   */
+  public function do_profile_sync_description() {
+    $_message_type = $this->message_type['err'];
+    $_message = null;
+    
+    $submit_data = $this->validate_submit_data();
+    
+    $prev_description = get_user_meta( $submit_data['user_id'], 'description', true );
+    $new_description = $submit_data[$this->domain_name]['description'];
+    if ( update_user_meta( $submit_data['user_id'], 'description', $new_description, $prev_description ) ) {
+      // Success
+      $_message = __('The profile of Qiita user it was synchronized to WordPress user.', $this->domain_name);
+      $_message_type = $this->message_type['note'];
+    } else {
+      // Fails
+      $_message = __('Synchronization of the profile was not done.', $this->domain_name);
+    }
+    
+    if ( ! empty($_message)) 
+      $this->register_admin_notices( $_message_type, $_message, 1, true );
+    
+    return;
+  }
+  
+  /**
+   * Tab: profile / Action: reacquire_profile
+   *
+   * @since 1.0.0
+   */
+  public function do_profile_reacquire_profile() {
+    $_message_type = $this->message_type['err'];
+    $_message = null;
+    
+    $submit_data = $this->validate_submit_data();
+    
+    $this->retrieve_authenticated_user_profile( $submit_data['user_id'] );
+    
+  }
+  
+  /**
    * Checked whether the current has been activated
    *
    * @since 1.0.0
@@ -666,11 +766,11 @@ final class WpQiitaMain extends WpQiitaUtils {
     if (empty($user_id) || intval($user_id) < 1) 
       return false;
     
-    $current_user_meta = get_user_meta($user_id, 'wpqt_qiita_authenticated_user', true);
-    if (is_array($current_user_meta) && array_key_exists('access_token', $current_user_meta) && !empty($current_user_meta['access_token'])) {
+    $current_user_meta = get_user_meta( $user_id, 'wpqt_qiita_authenticated_user', true );
+    if ( is_array( $current_user_meta ) && array_key_exists( 'access_token', $current_user_meta ) && ! empty( $current_user_meta['access_token'] ) ) {
       $this->token = $current_user_meta['access_token'];
-      $url = $this->get_api_url(array('authenticated_user'));
-      if (method_exists($this, 'request_api')) {
+      $url = $this->get_api_url( array( 'authenticated_user' ) );
+      if ( method_exists( $this, 'request_api' ) ) {
         $request_args = array(
           'method' => 'GET', 
           'headers' => array(
@@ -678,11 +778,11 @@ final class WpQiitaMain extends WpQiitaUtils {
             'Authorization' => 'Bearer ' . $this->token, 
           ),
         );
-        $response = wp_remote_request( $url, $request_args);
+        $response = wp_remote_request( $url, $request_args );
       }
-      return $this->validate_response_code($response);
+      return $this->validate_response_code( $response );
     } else {
-      unset($_SESSION['activation']);
+      unset( $_SESSION['activation'] );
       return false;
     }
     
@@ -700,11 +800,11 @@ final class WpQiitaMain extends WpQiitaUtils {
     if (empty($user_id) || intval($user_id) < 1) 
       return false;
     
-    $current_user_meta = get_user_meta($user_id, 'wpqt_qiita_authenticated_user', true);
-    if (is_array($current_user_meta) && array_key_exists('access_token', $current_user_meta) && !empty($current_user_meta['access_token'])) {
+    $current_user_meta = get_user_meta( $user_id, 'wpqt_qiita_authenticated_user', true );
+    if ( is_array( $current_user_meta ) && array_key_exists( 'access_token', $current_user_meta ) && ! empty( $current_user_meta['access_token'] ) ) {
       $this->token = $current_user_meta['access_token'];
-      $url = $this->get_api_url(array('authenticated_user'));
-      if (method_exists($this, 'request_api')) {
+      $url = $this->get_api_url( array( 'authenticated_user' ) );
+      if ( method_exists( $this, 'request_api' ) ) {
         $request_args = array(
           'method' => 'GET', 
           'headers' => array(
@@ -714,9 +814,9 @@ final class WpQiitaMain extends WpQiitaUtils {
         );
         $response = wp_remote_request( $url, $request_args );
       }
-      $_parse_response = json_decode(wp_remote_retrieve_body( $response ));
-      $_new_user_meta = array_merge($current_user_meta, (array)$_parse_response);
-      update_user_meta($user_id, 'wpqt_qiita_authenticated_user', $_new_user_meta);
+      $_parse_response = json_decode( wp_remote_retrieve_body( $response ) );
+      $_new_user_meta = array_merge( $current_user_meta, (array)$_parse_response );
+      update_user_meta( $user_id, 'wpqt_qiita_authenticated_user', $_new_user_meta );
       
       return $_new_user_meta;
     } else {
@@ -737,18 +837,18 @@ final class WpQiitaMain extends WpQiitaUtils {
     $_message_type = $this->message_type['err'];
     $_message = null;
     
-    if (empty($page) || intval($page) < 1 || intval($page) > 100) 
+    if ( empty( $page ) || intval( $page ) < 1 || intval( $page ) > 100) 
       $page = 1;
-    if (empty($per_page) || intval($per_page) < 1 || intval($per_page) > 100) 
+    if ( empty( $per_page ) || intval( $per_page ) < 1 || intval( $per_page ) > 100) 
       $per_page = 20;
     
     global $user_ID;
     get_currentuserinfo();
     
-    $current_user_meta = get_user_meta($user_ID, 'wpqt_qiita_authenticated_user', true);
-    $this->token = empty($this->token) ? $current_user_meta['access_token'] : $this->token;
-    $url = $this->get_api_url( array( 'authenticated_user', 'items' ), array( 'page'=>$page, 'per_page'=>$per_page ));
-    if (method_exists($this, 'request_api')) {
+    $current_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
+    $this->token = empty( $this->token ) ? $current_user_meta['access_token'] : $this->token;
+    $url = $this->get_api_url( array( 'authenticated_user', 'items' ), array( 'page'=>$page, 'per_page'=>$per_page ) );
+    if ( method_exists( $this, 'request_api' ) ) {
       $request_args = array(
         'method' => 'GET', 
         'headers' => array(
@@ -758,9 +858,9 @@ final class WpQiitaMain extends WpQiitaUtils {
       );
       $response = wp_remote_request( $url, $request_args );
     }
-    if ($this->validate_response_code($response)) {
+    if ( $this->validate_response_code( $response ) ) {
       // Success
-      $_parse_response = json_decode(wp_remote_retrieve_body( $response ));
+      $_parse_response = json_decode( wp_remote_retrieve_body( $response ) );
       $_SESSION['items'] = $_parse_response;
     } else {
       // Fails
@@ -981,6 +1081,58 @@ final class WpQiitaMain extends WpQiitaUtils {
     //add_rewrite_rule( '^wpqt-oauth/([^\?]*)$', 'wp-admin/options-general.php?$matches[1]', 'top' );
     
   }
+  
+  /**
+   * Set autosync schedule
+   *
+   * @since 1.0.0
+   *
+   * @param int $user_id [required]
+   * @param int $interval [required]
+   * @return string $hash
+   */
+  public function set_autosync_schedule( $user_id=null, $interval=0 ) {
+    if ( ! wp_next_scheduled( 'wp-qiita/autosync' ) ) {
+      // wp_schedule_event( time(), 'daily', 'wpqt/autosync' );
+    }
+    $_hash = md5( $user_id . time() . wp_rand() );
+    wp_schedule_single_event( time() + $interval, 'wpqt/autosync', array( $user_id, $_hash ) );
+    
+    return $_hash;
+  }
+  
+  /**
+   * Run autosync
+   *
+   * @since 1.0.0
+   *
+   * @param int $user_id [required]
+   * @param string $hash [required]
+   * @return void
+   */
+  public function wpqt_autosync( $user_id=null, $hash=null ) {
+    if ( empty( $user_id ) || empty( $hash ) ) 
+      return;
+    
+    $current_user_meta = get_user_meta( $user_id, 'wpqt_qiita_authenticated_user', true );
+    if ( is_array( $current_user_meta ) && array_key_exists( 'access_token', $current_user_meta ) && ! empty( $current_user_meta['access_token'] ) ) {
+      // Autosync processes
+      
+      
+      // Remove current schedule
+      wp_unschedule_event( $current_user_meta['autosync_datetime'], 'wpqt/autosync', array( $user_id, $hash ) );
+      
+      // Set new schedule
+      $_new_hash = $this->set_autosync_schedule( $user_id, $current_user_meta['autosync_interval'] );
+      $_autosync_datetime = wp_next_scheduled( 'wpqt/autosync', array( $user_id, $_new_hash ) );
+      $update_autosync = array( 'autosync_datetime' => $_autosync_datetime, 'autosync_hash' => $_new_hash );
+      $_new_user_meta = array_merge( $current_user_meta, $update_autosync );
+      update_user_meta( $user_id, 'wpqt_qiita_authenticated_user', $_new_user_meta );
+    }
+    
+    return;
+  }
+  
   
   /**
    * Logger for this plugin

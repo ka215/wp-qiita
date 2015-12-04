@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: WP Qiita 1.0.0\n"
-"POT-Creation-Date: 2015-10-29 13:18+0900\n"
+"POT-Creation-Date: 2015-12-04 18:42+0900\n"
 "PO-Revision-Date: \n"
 "Last-Translator: ka2 <ka2@ka2.org>\n"
 "Language-Team: ka2 <ka2@ka2.org>\n"
@@ -13,12 +13,12 @@ msgstr ""
 "X-Poedit-KeywordsList: __;_e;_x;_n;esc_attr__;esc_attr_e;esc_html__;"
 "esc_html_e\n"
 "X-Poedit-Basepath: ..\n"
-"X-Generator: Poedit 1.8.3\n"
+"X-Generator: Poedit 1.8.6\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 "X-Poedit-SearchPath-0: .\n"
 "X-Poedit-SearchPathExcluded-0: debug.log\n"
 
-#: external_translated_text.php:4 lib/main.php:294 lib/main.php:928
+#: external_translated_text.php:4 lib/main.php:300 lib/main.php:1010
 msgid "WP Qiita"
 msgstr "WP Qiita"
 
@@ -45,47 +45,47 @@ msgstr "Google+ ID"
 msgid "Error locating %s for inclusion"
 msgstr "インクルードパス %s のエラー"
 
-#: lib/main.php:257
+#: lib/main.php:263
 msgid "Close"
 msgstr "閉じる"
 
-#: lib/main.php:258
+#: lib/main.php:264 templates/wp-qiita-options.php:303
 msgid "Save changes"
 msgstr "変更を保存"
 
-#: lib/main.php:293 templates/wp-qiita-options.php:34
+#: lib/main.php:299 templates/wp-qiita-options.php:34
 msgid "WP Qiita General Options"
 msgstr "WP Qiita 各種設定"
 
-#: lib/main.php:318
+#: lib/main.php:324
 msgid "Settings"
 msgstr "設定"
 
-#: lib/main.php:421 lib/main.php:425 lib/main.php:439
+#: lib/main.php:427 lib/main.php:431 lib/main.php:445
 msgid "Invalid access this page."
 msgstr "このページへのアクセスが不正です。"
 
-#: lib/main.php:490 lib/main.php:587
+#: lib/main.php:496 lib/main.php:593
 msgid "Required data are not sent."
 msgstr "必要なデータが送信されていません。"
 
-#: lib/main.php:493
+#: lib/main.php:499
 msgid "Client ID is not specified."
 msgstr "クライアントIDが指定されていません。"
 
-#: lib/main.php:496
+#: lib/main.php:502
 msgid "Scopes is not specifed"
 msgstr "スコープ（権限）が指定されていません。"
 
-#: lib/main.php:533
+#: lib/main.php:539
 msgid "Alternative code to get access token does not exist."
 msgstr "アクセストークンを取得するための代替コードがありません。"
 
-#: lib/main.php:559 lib/main.php:617
+#: lib/main.php:565 lib/main.php:623
 msgid "Activation successful. You will work with Qiita."
 msgstr "Qiitaとの連携に成功しました。"
 
-#: lib/main.php:563
+#: lib/main.php:569
 #, php-format
 msgid ""
 "Your request has been response of \"%s\". Please check again whether there "
@@ -94,11 +94,11 @@ msgstr ""
 "あなたのリクエストへの応答は「%s」でした。設定値に誤りがないかどうかもう一度"
 "確認してください。"
 
-#: lib/main.php:590
+#: lib/main.php:596
 msgid "Access token is not specified."
 msgstr "アクセストークンが指定されていません。"
 
-#: lib/main.php:621
+#: lib/main.php:627
 #, php-format
 msgid ""
 "Your request has been response of \"%s\". Please check again whether there "
@@ -107,24 +107,40 @@ msgstr ""
 "あなたのリクエストへの応答は「%s」でした。アクセストークンに誤りがないかどう"
 "かもう一度確認してください。"
 
-#: lib/main.php:644
+#: lib/main.php:650
 msgid "Inactivation successful."
 msgstr "連携を解除しました。"
 
-#: lib/main.php:648
+#: lib/main.php:654
 msgid "Inactivation fails."
 msgstr "連携の解除に失敗しました。"
 
-#: lib/main.php:886 lib/main.php:945 lib/main.php:967
+#: lib/main.php:699
+msgid "Configuration has been changed successfully."
+msgstr "設定を変更しました。"
+
+#: lib/main.php:703
+msgid "Configuration changes did not take place."
+msgstr "設定の変更は行われませんでした。"
+
+#: lib/main.php:729
+msgid "The profile of Qiita user it was synchronized to WordPress user."
+msgstr "QiitaユーザーのプロフィールをWordPressユーザーに同期しました。"
+
+#: lib/main.php:733
+msgid "Synchronization of the profile was not done."
+msgstr "プロフィールの同期は行われませんでした。"
+
+#: lib/main.php:968 lib/main.php:1027 lib/main.php:1049
 #, php-format
 msgid "Function called: %s; %s"
 msgstr "呼び出された関数: %s; %s"
 
-#: lib/main.php:886
+#: lib/main.php:968
 msgid "WP Qiita plugin has activated."
 msgstr "WP Qiitaプラグインを有効化しました。"
 
-#: lib/main.php:912
+#: lib/main.php:994
 #, php-format
 msgid ""
 "Your server is running PHP version %s but this plugin requires at least PHP "
@@ -133,25 +149,25 @@ msgstr ""
 "サーバのPHPバージョンが %s です。このプラグインの実行にはPHP %s 以上が必要で"
 "す。アップグレードしてください。"
 
-#: lib/main.php:916
+#: lib/main.php:998
 #, php-format
 msgid "Please install the extension %s to run this plugin."
 msgstr "このプラグインを実行するには %s 拡張をインストールしてください。"
 
-#: lib/main.php:928
+#: lib/main.php:1010
 #, php-format
 msgid "The %s has been deactivated."
 msgstr "%s は停止されました。"
 
-#: lib/main.php:945
+#: lib/main.php:1027
 msgid "WP Qiita plugin has been deactivation."
 msgstr "WP Qiitaプラグインは停止されました。"
 
-#: lib/main.php:967
+#: lib/main.php:1049
 msgid "WP Qiita plugin uninstall now."
 msgstr "WP Qiitaプラグインをアンインストールします。"
 
-#: lib/main.php:1030
+#: lib/main.php:1164
 msgid "Failed to logging."
 msgstr "ログの出力に失敗しました。"
 
@@ -174,6 +190,10 @@ msgstr "コメント"
 #: templates/wp-qiita-options.php:19
 msgid "Extra"
 msgstr "その他の拡張"
+
+#: templates/wp-qiita-options.php:35
+msgid "Ver."
+msgstr "Ver."
 
 #: templates/wp-qiita-options.php:60
 msgid ""
@@ -209,11 +229,13 @@ msgid "You will register the application on Qiita."
 msgstr "Qiitaにてアプリケーションを登録する"
 
 #: templates/wp-qiita-options.php:83
+#, php-format
 msgid ""
-"\"Redirect URL\" Please specify the URL of the management screen of this WP "
-"Qiita."
+"\"Redirect URL\" Please specify the URL (%s) of the management screen of "
+"this WP Qiita."
 msgstr ""
-"「リダイレクト先のURL」 は、WP Qiitaの管理画面のURLを指定してください。"
+"「リダイレクト先のURL」にはWP Qiita各種設定画面のURL（%s）を指定してくださ"
+"い。"
 
 #: templates/wp-qiita-options.php:91
 msgid "Client ID and Client Secret is issued."
@@ -306,23 +328,82 @@ msgstr "発行されたアクセストークンを入力します"
 msgid "Access Token"
 msgstr "アクセストークン"
 
-#: templates/wp-qiita-options.php:233
+#: templates/wp-qiita-options.php:237
+#, php-format
+msgid "Next autosync will be executed at %s."
+msgstr "次回の自動同期は%s頃に実行されます。"
+
+#: templates/wp-qiita-options.php:239
+msgid "Undefined"
+msgstr "未定義"
+
+#: templates/wp-qiita-options.php:243
 msgid "Currently, already Activated."
 msgstr "アクティベート済みです。"
 
-#: templates/wp-qiita-options.php:235
+#: templates/wp-qiita-options.php:245
 msgid "Do you want to inactivate and stop cooperation with Qiita?"
 msgstr "アクティベートを解除して、Qiitaとの連携を停止しますか？"
 
-#: templates/wp-qiita-options.php:241
+#: templates/wp-qiita-options.php:251
 msgid "Inactivate"
 msgstr "連携の解除"
 
-#: templates/wp-qiita-options.php:248
+#: templates/wp-qiita-options.php:257
+msgid "Advanced cooperation options"
+msgstr "高度な連携設定"
+
+#: templates/wp-qiita-options.php:259
+msgid ""
+"In this options, you can carry out the advanced settings about connection "
+"with the Qiita."
+msgstr "この設定では、Qiitaとの接続における詳細な設定を行うことができます。"
+
+#: templates/wp-qiita-options.php:264
+msgid "Autosync"
+msgstr "自動同期"
+
+#: templates/wp-qiita-options.php:268
+msgid "Checked if you want to enable automatic synchronization with Qiita."
+msgstr "Qiitaとの自動同期を有効化する場合はチェックしてください。"
+
+#: templates/wp-qiita-options.php:274
+msgid "Autosync Interval"
+msgstr "自動同期の間隔"
+
+#: templates/wp-qiita-options.php:279
+msgid ""
+"There is a possibility when it will be not able to synchronize by the "
+"connection restriction of  the Qiita if you set too short interval. "
+"(Recommend about once a day)"
+msgstr ""
+"あまりにも短い間隔を設定するとQiitaの通信制限により自動同期できなくなる場合が"
+"あります。（推奨は1日1回程度）"
+
+#: templates/wp-qiita-options.php:284
+msgid "Autosync Status"
+msgstr "自動同期ステータス"
+
+#: templates/wp-qiita-options.php:291
+msgid "Auto Post"
+msgstr "自動投稿"
+
+#: templates/wp-qiita-options.php:295
+msgid ""
+"Checked if you want to post automatically by specific schedule to Qiita."
+msgstr ""
+"指定のスケジュールでQiitaへ自動的に投稿する場合はチェックしてください。"
+
+#: templates/wp-qiita-options.php:295 templates/wp-qiita-options.php:727
+#: templates/wp-qiita-options.php:737
+msgid "In Preparation"
+msgstr "準備中"
+
+#: templates/wp-qiita-options.php:311
 msgid "About WP Qiita"
 msgstr "WP Qiitaについて"
 
-#: templates/wp-qiita-options.php:250
+#: templates/wp-qiita-options.php:313
 msgid ""
 "If you become to like this plugin or if it helps your business, donations to "
 "the author are greatly appreciated."
@@ -330,163 +411,187 @@ msgstr ""
 "このプラグインを気に入ってくれたり、あなたのビジネスに役立った時に、作者への"
 "寄付をご検討いただけるとありがたいです。"
 
-#: templates/wp-qiita-options.php:260
+#: templates/wp-qiita-options.php:323
 msgid "The safer, easier way to pay online!"
 msgstr "オンラインでより安全・簡単にお支払い"
 
-#: templates/wp-qiita-options.php:272
+#: templates/wp-qiita-options.php:335
 msgid "Please Donate To Bitcoin Address:"
 msgstr "BitCoinでの寄付先アドレス:"
 
-#: templates/wp-qiita-options.php:287
+#: templates/wp-qiita-options.php:350
 msgid "WP Qiita License Agreement"
 msgstr "WP Qiita ライセンス規約"
 
-#: templates/wp-qiita-options.php:299
+#: templates/wp-qiita-options.php:362
 msgid "Authenticated Qiita user&#039;s profile"
 msgstr "認証済みQiitaユーザーのプロフィール"
 
-#: templates/wp-qiita-options.php:323
+#: templates/wp-qiita-options.php:380
+msgid "Unacquired"
+msgstr "未取得"
+
+#: templates/wp-qiita-options.php:394
 msgid "Followees"
 msgstr "フォロー中のユーザー"
 
-#: templates/wp-qiita-options.php:329
+#: templates/wp-qiita-options.php:400
 msgid "Followers"
 msgstr "フォロワー"
 
-#: templates/wp-qiita-options.php:335
+#: templates/wp-qiita-options.php:406
 msgid "Items Count"
 msgstr "投稿数"
 
-#: templates/wp-qiita-options.php:341
+#: templates/wp-qiita-options.php:412
 msgid "GitHub Login Name"
 msgstr "GitHubログイン名"
 
-#: templates/wp-qiita-options.php:347
+#: templates/wp-qiita-options.php:418
 msgid "Twitter Screen Name"
 msgstr "Twitter表示名"
 
-#: templates/wp-qiita-options.php:361
+#: templates/wp-qiita-options.php:432
 msgid "Image Monthly Upload Remaining"
 msgstr "月間アップロード画像残容量"
 
-#: templates/wp-qiita-options.php:367
+#: templates/wp-qiita-options.php:438
 msgid "Qiita: Team Only"
 msgstr "Qiita:Team専用モード"
 
-#: templates/wp-qiita-options.php:377
+#: templates/wp-qiita-options.php:444
+msgid "Contribution"
+msgstr "Contribution"
+
+#: templates/wp-qiita-options.php:454
 msgid "Name"
 msgstr "名前"
 
-#: templates/wp-qiita-options.php:388
+#: templates/wp-qiita-options.php:465
 msgid "Website URL"
 msgstr "サイト/ブログ"
 
-#: templates/wp-qiita-options.php:396
+#: templates/wp-qiita-options.php:473
 msgid "Organization"
 msgstr "所属している組織・会社"
 
-#: templates/wp-qiita-options.php:404
+#: templates/wp-qiita-options.php:481
 msgid "Location"
 msgstr "居住地"
 
-#: templates/wp-qiita-options.php:412
+#: templates/wp-qiita-options.php:489
 msgid "Description"
 msgstr "自己紹介"
 
-#: templates/wp-qiita-options.php:420
+#: templates/wp-qiita-options.php:495
+msgid "Sync of Description to WordPress users"
+msgstr "WordPressのユーザーへ自己紹介を同期"
+
+#: templates/wp-qiita-options.php:500
 msgid "Facebook ID"
 msgstr "Facebook ID"
 
-#: templates/wp-qiita-options.php:431
+#: templates/wp-qiita-options.php:511
 msgid "LinkedIn ID"
 msgstr "LinkedIn ID"
 
-#: templates/wp-qiita-options.php:466
+#: templates/wp-qiita-options.php:540
+msgid ""
+"In order to get the number of contribution of Qiita user you need to "
+"synchronize the Qiita article."
+msgstr ""
+"Qiitaユーザーの貢献数（Contribution）を取得するためにはQiita記事を同期する必"
+"要があります。"
+
+#: templates/wp-qiita-options.php:542
+msgid "Reacquire Qiita User&#039;s Profile"
+msgstr "Qiitaユーザーのプロフィールを再取得"
+
+#: templates/wp-qiita-options.php:549
 msgid "Articles management for authenticated Qiita user"
 msgstr "認証済みQiitaユーザーの記事管理"
 
-#: templates/wp-qiita-options.php:484
+#: templates/wp-qiita-options.php:567
 msgid "Title"
 msgstr "タイトル"
 
-#: templates/wp-qiita-options.php:485
+#: templates/wp-qiita-options.php:568
 msgid "Stocks"
 msgstr "ストック数"
 
-#: templates/wp-qiita-options.php:486
+#: templates/wp-qiita-options.php:569
 msgid "Synchronizing"
 msgstr "同期状態"
 
-#: templates/wp-qiita-options.php:487
+#: templates/wp-qiita-options.php:570
 msgid "Excerpt"
 msgstr "抜粋"
 
-#: templates/wp-qiita-options.php:488
+#: templates/wp-qiita-options.php:571
 msgid "Tags"
 msgstr "タグ"
 
-#: templates/wp-qiita-options.php:489
+#: templates/wp-qiita-options.php:572
 msgid "Co Editing"
 msgstr "共同編集"
 
-#: templates/wp-qiita-options.php:490
+#: templates/wp-qiita-options.php:573
 msgid "Private"
 msgstr "限定共有"
 
-#: templates/wp-qiita-options.php:491
+#: templates/wp-qiita-options.php:574
 msgid "Created at"
 msgstr "作成日時"
 
-#: templates/wp-qiita-options.php:492
+#: templates/wp-qiita-options.php:575
 msgid "Updated at"
 msgstr "更新日時"
 
-#: templates/wp-qiita-options.php:503
+#: templates/wp-qiita-options.php:586
 msgid "Display Item Per Page"
 msgstr "ページ毎の表示件数"
 
-#: templates/wp-qiita-options.php:552
+#: templates/wp-qiita-options.php:635
 msgid "During"
 msgstr "同期中"
 
-#: templates/wp-qiita-options.php:552
+#: templates/wp-qiita-options.php:635
 msgid "Unsynchronized"
 msgstr "未同期"
 
-#: templates/wp-qiita-options.php:586
+#: templates/wp-qiita-options.php:669
 msgid "Change Items"
 msgstr "変更する"
 
-#: templates/wp-qiita-options.php:598
+#: templates/wp-qiita-options.php:681
 msgid "The below features will have been available in this plugin."
 msgstr "このプラグインで利用できるようになるその他の機能一覧"
 
-#: templates/wp-qiita-options.php:602
+#: templates/wp-qiita-options.php:685
 msgid "Q mark logo of Qiita"
 msgstr "QiitaのQマークのロゴ"
 
-#: templates/wp-qiita-options.php:603
+#: templates/wp-qiita-options.php:686
 msgid "Logo of the favicon of Qiita"
 msgstr "Qiitaのfaviconのロゴマーク"
 
-#: templates/wp-qiita-options.php:604
+#: templates/wp-qiita-options.php:687
 msgid "Logo of the favicon of Qiita (multiple color)"
 msgstr "Qiitaのfaviconのロゴマーク（マルチカラー）"
 
-#: templates/wp-qiita-options.php:605
+#: templates/wp-qiita-options.php:688
 msgid "Logo of the favicon of Qiita (reversal)"
 msgstr "Qiitaのfaviconのロゴマーク（反転）"
 
-#: templates/wp-qiita-options.php:606
+#: templates/wp-qiita-options.php:689
 msgid "Logo of Qiita in the rounded square"
 msgstr "丸角スクウェア内にQiitaのロゴ"
 
-#: templates/wp-qiita-options.php:611
+#: templates/wp-qiita-options.php:694
 msgid "Various Icon Fonts"
 msgstr "各種アイコンフォント"
 
-#: templates/wp-qiita-options.php:614
+#: templates/wp-qiita-options.php:697
 msgid ""
 "In a state in which this plugin is enabled, you can use the following icon "
 "fonts in your site."
@@ -494,42 +599,47 @@ msgstr ""
 "このプラグインが有効化されている状態では、あなたのサイト内で以下のアイコン"
 "フォントを使用することができます。"
 
-#: templates/wp-qiita-options.php:619
+#: templates/wp-qiita-options.php:702
 msgid "View"
 msgstr "見え方"
 
-#: templates/wp-qiita-options.php:620
+#: templates/wp-qiita-options.php:703
 msgid "Describe"
 msgstr "概要"
 
-#: templates/wp-qiita-options.php:621
+#: templates/wp-qiita-options.php:704
 msgid "Code"
 msgstr "コード"
 
-#: templates/wp-qiita-options.php:622
+#: templates/wp-qiita-options.php:705
 msgid "Context"
 msgstr "実体"
 
-#: templates/wp-qiita-options.php:640
+#: templates/wp-qiita-options.php:723
 msgid "Various Shortcodes"
 msgstr "各種ショートコード"
 
-#: templates/wp-qiita-options.php:643
+#: templates/wp-qiita-options.php:726
 msgid ""
 "After you have cooperation with Qiita via this plugin, following shortcodes "
 "will be available."
 msgstr "Qiitaと連携した後であれば、以下のショートコードが利用可能になります。"
 
-#: templates/wp-qiita-options.php:644 templates/wp-qiita-options.php:654
-msgid "In Preparation"
-msgstr "準備中"
-
-#: templates/wp-qiita-options.php:650
+#: templates/wp-qiita-options.php:733
 msgid "Various Widgets"
 msgstr "各種ウィジェット"
 
-#: templates/wp-qiita-options.php:653
+#: templates/wp-qiita-options.php:736
 msgid ""
 "After you have cooperation with Qiita via this plugin, following widgets "
 "will be available."
 msgstr "Qiitaと連携した後であれば、以下のウィジェットが利用可能になります。"
+
+#~ msgid "Reacquire"
+#~ msgstr "再取得"
+
+#~ msgid ""
+#~ "\"Redirect URL\" Please specify the URL of the management screen of this "
+#~ "WP Qiita."
+#~ msgstr ""
+#~ "「リダイレクト先のURL」 は、WP Qiitaの管理画面のURLを指定してください。"

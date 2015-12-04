@@ -77,6 +77,38 @@ class WpQiitaUtils extends WpQiita {
     }
   }
   
+  /**
+   * Get the URL of the current page with the full path
+   *
+   * @since 1.0.0
+   *
+   * @param boolean $absolute [required] Default is TRUE
+   * @return string $url
+   */
+  public function get_current_url( $absolute=true ) {
+    
+    if ( $_SERVER['SERVER_PROTOCOL'] ) 
+      list( $scheme,  ) = explode( '/', $_SERVER['SERVER_PROTOCOL'] );
+    
+    if ( $_SERVER['HTTP_HOST'] ) 
+      $hostname = $_SERVER['HTTP_HOST'];
+    
+    if ( $_SERVER['REQUEST_URI'] ) {
+      $request_uri = $_SERVER['REQUEST_URI'];
+    } else
+    if ( $_SERVER['PHP_SELF'] && $_SERVER['QUERY_STRING'] ) {
+      $request_uri = $_SERVER['PHP_SELF'] . ( ! empty( $_SERVER['QUERY_STRING'] ) ? '?' . $_SERVER['QUERY_STRING'] : '' );
+    }
+    
+    if ( wp_validate_boolean( $absolute ) ) {
+      $_host = isset( $scheme ) && ! empty( $scheme ) && isset( $hostname ) && ! empty( $hostname ) ? strtolower( $scheme ) . '://' . $hostname : site_url();
+      $url = rtrim( $_host, '/' ) . $request_uri;
+    } else {
+      $url = $request_uri;
+    }
+    return $url;
+    
+  }
   
 }
 

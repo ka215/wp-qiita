@@ -37,8 +37,9 @@ $(document).ready(function(){
   $('#wp-qiita-options').find('button').on('click', function(e){
     var is_submit = false;
     var form = $('#wp-qiita-admin-form');
-    form.children('[name=action]').val($(this).data().buttonAction);
-    switch($(this).data().buttonAction) {
+    var buttonAction = $(this).data().buttonAction;
+    form.children('[name=action]').val(buttonAction);
+    switch(buttonAction) {
       case 'activate_oauth': 
         if ($('#wpqt-client_id').val() !== '') {
           var clientid_field = $('#wpqt-client_id').clone();
@@ -88,6 +89,28 @@ $(document).ready(function(){
         }
         
         break;
+      case 'advanced_setting': 
+        if ($('#wpqt-advanced_setting').val() === 'true') {
+          var autosync = $('#wpqtAutosync').clone();
+          form.append( autosync.val(autosync.prop('checked')).attr('type', 'hidden') );
+          var autosync_interval = $('#wpqtAutosyncInterval').clone();
+          form.append( autosync_interval.attr('type', 'hidden') );
+          var autopost = $('#wpqtAutoPost').clone();
+          form.append( autopost.val(autopost.prop('checked')).attr('type', 'hidden') );
+          is_submit = true;
+        } else {
+          displayModal('error!');
+        }
+        break;
+      case 'sync_description': 
+        var wpqtDescription = $('#user_description').val();
+        var wpqtDescriptionName = $('#user_description').attr('name').replace('user', 'wp-qiita');
+        form.append( '<input type="hidden" name="'+ wpqtDescriptionName +'" value="'+ wpqtDescription +'">' );
+        is_submit = true;
+        break;
+      case 'reacquire_profile': 
+        is_submit = true;
+        break;
       case 'reload_items': 
         var per_page = $('#change-perpage-number').val();
         var parse_url = location.href.split('?');
@@ -100,6 +123,7 @@ $(document).ready(function(){
         
         break;
       default:
+        console.log( buttonAction );
         
         break;
     }

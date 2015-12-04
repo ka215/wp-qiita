@@ -4,9 +4,9 @@ $_local_code = defined('WPLANG') ? '-' . WPLANG : '';
 global $user_ID;
 get_currentuserinfo();
 
-if ($this->check_current_activated($user_ID)) {
-  $_qiita_user_meta = get_user_meta($user_ID, 'wpqt_qiita_authenticated_user', true);
-  $_is_activated = !is_array($_qiita_user_meta) || !array_key_exists('activated', $_qiita_user_meta) || !wp_validate_boolean($_qiita_user_meta['activated']) ? false : true;
+if ( $this->check_current_activated( $user_ID ) ) {
+  $_qiita_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
+  $_is_activated = ! is_array( $_qiita_user_meta ) || ! array_key_exists( 'activated', $_qiita_user_meta ) || ! wp_validate_boolean( $_qiita_user_meta['activated'] ) ? false : true;
 } else {
   $_is_activated = false;
 }
@@ -18,15 +18,15 @@ $tmpl_tabs = array(
   'comments' => __('Comments', $this->domain_name), 
   'extra' => __('Extra', $this->domain_name), 
 );
-if ($_is_activated) {
-  unset($tmpl_tabs['comments']); // Features not yet valid
-  $tmpl_current_tab = array_key_exists('tab', $this->query) ? $this->query['tab'] : 'activation';
+if ( $_is_activated ) {
+  unset( $tmpl_tabs['comments'] ); // Features not yet valid
+  $tmpl_current_tab = array_key_exists( 'tab', $this->query ) ? $this->query['tab'] : 'activation';
 } else {
-  unset($tmpl_tabs['profile'], $tmpl_tabs['items'], $tmpl_tabs['comments']);
-  $tmpl_current_tab = array_key_exists('tab', $this->query) ? $this->query['tab'] : 'activation';
+  unset( $tmpl_tabs['profile'], $tmpl_tabs['items'], $tmpl_tabs['comments'] );
+  $tmpl_current_tab = array_key_exists( 'tab', $this->query ) ? $this->query['tab'] : 'activation';
 }
 
-$wpqt_nonce_action = implode('/', array(site_url(), $this->domain_name, $user_ID, $this->query['page']));
+$wpqt_nonce_action = implode( '/', array( site_url(), $this->domain_name, $user_ID, $this->query['page'] ) );
 
 ?>
 <div id="wp-qiita-options">
@@ -53,8 +53,8 @@ $wpqt_nonce_action = implode('/', array(site_url(), $this->domain_name, $user_ID
   <div class="tab-content">
     <div role="tabpanel" class="tab-pane<?php if ($tmpl_current_tab === 'activation') : ?> active<?php endif; ?>" id="activation">
 <?php
-if ('activation' === $tmpl_current_tab) : 
-  if (!$_is_activated) : 
+if ( 'activation' === $tmpl_current_tab ) : 
+  if ( ! $_is_activated) : 
 ?>
       <p class="describe">
         <?php _e('At the here is able to do Qiita and WordPress activation (cooperation). In the activation has two kinds of methods.', $this->domain_name); ?>
@@ -80,7 +80,7 @@ if ('activation' === $tmpl_current_tab) :
                     <img src="<?php echo $this->plugin_dir_url; ?>/assets/images/qiita-app-register-1.png">
                     <div class="caption">
                       <h5>1. <?php _e('You will register the application on Qiita.', $this->domain_name); ?></h5>
-                      <p><?php _e('"Redirect URL" Please specify the URL of the management screen of this WP Qiita.', $this->domain_name); ?></p>
+                      <p><?php printf( __('"Redirect URL" Please specify the URL (%s) of the management screen of this WP Qiita.', $this->domain_name), '<code>'. $this->get_current_url() .'</code>'  ); ?></p>
                     </div>
                   </div>
                 </div>
@@ -229,7 +229,17 @@ if ('activation' === $tmpl_current_tab) :
           </div><!-- /.panel-collapse -->
         </div><!-- /.panel -->
       </div><!-- /#accordion-->
-<?php else : ?>
+<?php else : 
+$_autosync = isset( $_qiita_user_meta['autosync'] ) ? wp_validate_boolean( $_qiita_user_meta['autosync'] ) : false;
+$_autosync_interval = isset( $_qiita_user_meta['autosync_interval'] ) && intval( $_qiita_user_meta['autosync_interval'] ) > 0 ? intval( $_qiita_user_meta['autosync_interval'] ) : '';
+if ( isset( $_qiita_user_meta['autosync_datetime'] ) && ! empty( $_qiita_user_meta['autosync_datetime'] ) ) {
+  $_next_autosync = date_i18n( 'Y-m-d H:i', $_qiita_user_meta['autosync_datetime'] + $_autosync_interval, false );
+  $_autosync_status = sprintf( __('Next autosync will be executed at %s.', $this->domain_name), '<time>'. $_next_autosync .'</time>' );
+} else {
+  $_autosync_status = __('Undefined', $this->domain_name);
+}
+$_autopost = isset( $_qiita_user_meta['autopost'] ) ? wp_validate_boolean( $_qiita_user_meta['autopost'] ) : false;
+?>
       <h3 class="text-success"><?php _e('Currently, already Activated.', $this->domain_name); ?></h3>
       
       <p class="describe"><?php _e('Do you want to inactivate and stop cooperation with Qiita?', $this->domain_name); ?></p>
@@ -242,6 +252,59 @@ if ('activation' === $tmpl_current_tab) :
           </div>
         </div>
       </div>
+      
+      <div class="activated-options">
+        <h4 class="text-info"><?php _e('Advanced cooperation options', $this->domain_name); ?></h4>
+        
+        <p class="describe"><?php _e('In this options, you can carry out the advanced settings about connection with the Qiita.', $this->domain_name); ?></p>
+        
+        <div class="form-horizontal">
+          <input type="hidden" id="wpqt-advanced_setting" name="<?php echo esc_attr($this->domain_name); ?>[advanced_setting]" value="true">
+          <div class="form-group">
+            <label for="wpqtAutosync" class="col-sm-2 control-label"><?php _e('Autosync', $this->domain_name); ?></label>
+            <div class="col-sm-10">
+              <div class="checkbox">
+                <label>
+                  <input type="checkbox" id="wpqtAutosync" name="<?php echo esc_attr($this->domain_name); ?>[autosync]" <?php checked( $_autosync, true ); ?>> <?php _e('Checked if you want to enable automatic synchronization with Qiita.', $this->domain_name); ?>
+                </label>
+              </div>
+            </div>
+          </div><!-- /.form-group:#wpqtAutosync -->
+          <div class="form-group">
+            <label for="wpqtAutosyncInterval" class="col-sm-2 control-label"><?php _e('Autosync Interval', $this->domain_name); ?></label>
+            <div class="col-sm-2">
+              <input type="text" class="form-control" id="wpqtAutosyncInterval" aria-describedby="helpAutosyncInterval" name="<?php echo esc_attr($this->domain_name); ?>[autosync_interval]" placeholder="86400 (=1day)" value="<?php echo $_autosync_interval; ?>">
+            </div>
+            <div class="col-sm-offset-2 col-sm-10">
+              <span id="helpAutosyncInterval" class="help-block"><?php _e('There is a possibility when it will be not able to synchronize by the connection restriction of  the Qiita if you set too short interval. (Recommend about once a day)', $this->domain_name); ?></span>
+            </div>
+          </div><!-- /.form-group:#wpqtAutosyncInterval -->
+        <?php if ( $_autosync ) : ?>
+          <div class="form-group">
+            <label for="wpqtAutosyncStatus" class="col-sm-2 control-label"><?php _e('Autosync Status', $this->domain_name); ?></label>
+            <div class="col-sm-10" style="padding-top: 7px;">
+              <?php echo $_autosync_status; ?>
+            </div>
+          </div><!-- /.form-group:#wpqtAutosyncStatus -->
+        <?php endif; ?>
+          <div class="form-group">
+            <label for="wpqtAutoPost" class="col-sm-2 control-label"><?php _e('Auto Post', $this->domain_name); ?></label>
+            <div class="col-sm-10">
+              <div class="checkbox">
+                <label>
+                  <input type="checkbox" id="wpqtAutoPost" name="<?php echo esc_attr($this->domain_name); ?>[autopost]" disabled="disabled" <?php checked( $_autopost, true ); ?>> <?php _e('Checked if you want to post automatically by specific schedule to Qiita.', $this->domain_name); ?> <span class="text-muted"><?php _e('In Preparation', $this->domain_name); ?></span>
+                </label>
+              </div>
+            </div>
+          </div><!-- /.form-group:#wpqtAutosync -->
+          
+          <div class="form-group">
+            <div class="col-sm-offset-2 col-sm-10">
+              <button type="button" class="btn btn-primary" data-button-action="advanced_setting"><?php _e('Save changes', $this->domain_name); ?></button>
+            </div>
+          </div><!-- /.form-group:#wpqtAutosync -->
+        </div><!-- /.form-horizontal -->
+      </div><!-- /.activated-options -->
       
 <?php endif; ?>
   <div class="panel panel-default donate-info">
@@ -299,15 +362,23 @@ if ('activation' === $tmpl_current_tab) :
       <h4 class="heading-tab"><?php _e('Authenticated Qiita user&#039;s profile', $this->domain_name); ?></h4>
       
 <?php
-if (!array_key_exists('id', $_qiita_user_meta)) {
+if ( ! array_key_exists( 'id', $_qiita_user_meta ) ) {
   $_qiita_user_meta = $this->retrieve_authenticated_user_profile( $user_ID );
 }
-$_name_elements = explode(' ', $_qiita_user_meta['name']);
-$first_name = isset($_name_elements[0]) && !empty($_name_elements[0]) ? $_name_elements[0] : '';
-$last_name = isset($_name_elements[1]) && !empty($_name_elements[1]) ? $_name_elements[1] : '';
-$_upload_limit = size_format($_qiita_user_meta['image_monthly_upload_limit'], 0);
-$_upload_remaining = size_format($_qiita_user_meta['image_monthly_upload_remaining'], 2);
+$_name_elements = explode( ' ', $_qiita_user_meta['name'] );
+$first_name = isset( $_name_elements[0] ) && ! empty( $_name_elements[0] ) ? $_name_elements[0] : '';
+$last_name = isset( $_name_elements[1] ) && ! empty( $_name_elements[1] ) ? $_name_elements[1] : '';
+$_upload_limit = size_format( $_qiita_user_meta['image_monthly_upload_limit'], 0 );
+$_upload_remaining = size_format( $_qiita_user_meta['image_monthly_upload_remaining'], 2 );
 $_team_only = $_qiita_user_meta['team_only'] ? 'TRUE' : 'FALSE';
+// test
+if ( isset( $_qiita_user_meta['contribution'] ) || ! empty( $_qiita_user_meta['contribution'] ) ) {
+  $_is_contribution = true;
+  $_contribution = $_qiita_user_meta['contribution'];
+} else {
+  $_is_contribution = false;
+  $_contribution =  __('Unacquired', $this->domain_name);
+}
 ?>
       <div class="row">
         <div class="col-xs-6 col-sm-4 col-md-4">
@@ -321,52 +392,58 @@ $_team_only = $_qiita_user_meta['team_only'] ? 'TRUE' : 'FALSE';
           <div class="form-horizontal">
             <div class="form-group">
               <label for="user_followees" class="col-sm-6 control-label"><?php _e('Followees', $this->domain_name); ?></label>
-              <div class="col-sm-4">
+              <div class="col-sm-6">
                 <input class="form-control" type="text" value="<?php echo esc_attr($_qiita_user_meta['followees_count']); ?>" name="user[followees_count]" id="user_followees" readonly>
               </div>
             </div>
             <div class="form-group">
               <label for="user_followers" class="col-sm-6 control-label"><?php _e('Followers', $this->domain_name); ?></label>
-              <div class="col-sm-4">
+              <div class="col-sm-6">
                 <input class="form-control" type="text" value="<?php echo esc_attr($_qiita_user_meta['followers_count']); ?>" name="user[followers_count]" id="user_followers" readonly>
               </div>
             </div>
             <div class="form-group">
               <label for="user_items_count" class="col-sm-6 control-label"><?php _e('Items Count', $this->domain_name); ?></label>
-              <div class="col-sm-4">
+              <div class="col-sm-6">
                 <input class="form-control" type="text" value="<?php echo esc_attr($_qiita_user_meta['items_count']); ?>" name="user[items_count]" id="user_items_count" readonly>
               </div>
             </div>
             <div class="form-group">
               <label for="user_github_login_name" class="col-sm-6 control-label"><?php _e('GitHub Login Name', $this->domain_name); ?></label>
-              <div class="col-sm-4">
+              <div class="col-sm-6">
                 <input class="form-control" type="text" value="<?php echo esc_attr($_qiita_user_meta['github_login_name']); ?>" name="user[github_login_name]" id="user_github_login_name" readonly>
               </div>
             </div>
             <div class="form-group">
               <label for="user_twitter_screen_name" class="col-sm-6 control-label"><?php _e('Twitter Screen Name', $this->domain_name); ?></label>
-              <div class="col-sm-4">
+              <div class="col-sm-6">
                 <input class="form-control" type="text" value="<?php echo esc_attr($_qiita_user_meta['twitter_screen_name']); ?>" name="user[twitter_screen_name]" id="user_twitter_screen_name" readonly>
               </div>
             </div>
 <?php /*
             <div class="form-group">
               <label for="user_image_monthly_upload_limit" class="col-sm-6 control-label"><?php _e('Image Monthly Upload Limit', $this->domain_name); ?></label>
-              <div class="col-sm-4">
+              <div class="col-sm-6">
                 <input class="form-control" type="text" value="<?php echo esc_attr($_upload_limit); ?>" name="user[image_monthly_upload_limit]" id="user_image_monthly_upload_limit" readonly>
               </div>
             </div>
 */ ?>
               <div class="form-group">
               <label for="user_image_monthly_upload_remaining" class="col-sm-6 control-label"><?php _e('Image Monthly Upload Remaining', $this->domain_name); ?></label>
-              <div class="col-sm-4">
+              <div class="col-sm-6">
                 <input class="form-control" type="text" value="<?php echo esc_attr($_upload_remaining); ?>" name="user[image_monthly_upload_remaining]" id="user_image_monthly_upload_remaining" readonly>
               </div>
             </div>
             <div class="form-group">
               <label for="user_team_only" class="col-sm-6 control-label"><?php _e('Qiita: Team Only', $this->domain_name); ?></label>
-              <div class="col-sm-4">
+              <div class="col-sm-6">
                 <input class="form-control" type="text" value="<?php echo esc_attr($_team_only); ?>" name="user[team_only]" id="user_team_only" readonly>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="user_contribution" class="col-sm-6 control-label<?php if ( ! $_is_contribution ) : ?> text-muted<?php endif; ?>"><?php _e('Contribution', $this->domain_name); ?></label>
+              <div class="col-sm-6">
+                <input class="form-control" type="text" value="<?php echo esc_attr($_contribution); ?>" name="user[contribution]" id="user_contribution" readonly<?php if ( ! $_is_contribution ) : ?> disabled<?php endif; ?>>
               </div>
             </div>
           </div><!-- /.form-horizontal -->
@@ -414,6 +491,9 @@ $_team_only = $_qiita_user_meta['team_only'] ? 'TRUE' : 'FALSE';
           <div class="col-sm-12">
             <textarea rows="4" maxlength="200" class="form-control" name="user[description]" id="user_description" readonly><?php echo esc_textarea($_qiita_user_meta['description']); ?></textarea>
           </div>
+          <div class="col-sm-12" style="margin-top: 0.5em;">
+            <button type="button" id="sync-description" class="btn btn-default"  data-button-action="sync_description"><?php _e('Sync of Description to WordPress users', $this->domain_name); ?></button>
+          </div>
         </div>
       </div>
       <div class="form-group profileSettings_ignoreRailsError ">
@@ -454,11 +534,14 @@ $_team_only = $_qiita_user_meta['team_only'] ? 'TRUE' : 'FALSE';
 */ ?>
       
       </div><!-- /.row -->
-<?php /*
       <div class="form-group">
-        <button type="submit" id="commit" class="btn btn-primary btn-lg">Commit</button>
+        <div class="col-sm-offset-1 col-sm-11">
+      <?php if ( ! $_is_contribution ) : ?>
+        <p class="help-block"><span class="text-warning"><?php _e('In order to get the number of contribution of Qiita user you need to synchronize the Qiita article.', $this->domain_name); ?></span></p>
+      <?php endif; ?>
+        <button type="button" id="reacquire" class="btn btn-primary" data-button-action="reacquire_profile"><?php _e('Reacquire Qiita User&#039;s Profile', $this->domain_name); ?></button>
+        </div>
       </div>
-*/ ?>
 <?php endif; ?>
     </div><!-- /.tab-pane#profile -->
     <div role="tabpanel" class="tab-pane<?php if ($tmpl_current_tab === 'items') : ?> active<?php endif; ?>" id="items">
