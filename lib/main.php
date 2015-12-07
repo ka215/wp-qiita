@@ -96,6 +96,12 @@ final class WpQiitaMain extends WpQiitaUtils {
     add_action( 'after_setup_theme', array( $this, 'wpqt_setup_theme' ) );
     add_action( 'plugins_loaded', array( $this, 'wpqt_plugin_loaded' ) );
     add_action( 'init', array( $this, 'wpqt_init' ) );
+    if ( ! post_type_exists( $this->domain_name ) ) {
+      // Register a wp-qiita post type.
+      // 
+      // @link http://codex.wordpress.org/Function_Reference/register_post_type
+      add_action( 'init', array( $this, 'create_post_type' ) );
+    }
     add_action( 'widget_init', array( $this, 'wpqt_widget' ) );
     add_action( 'wp_loaded', array( $this, 'wpqt_wp_loaded' ) ); // Fired once WordPress, all plugins, and the theme are fully loaded
     add_action( 'wp-qiita/autosync', array( $this, 'wpqt_autosync' ) ); // Add New Action
@@ -752,6 +758,97 @@ final class WpQiitaMain extends WpQiitaUtils {
     
     $this->retrieve_authenticated_user_profile( $submit_data['user_id'] );
     
+    if ( count_user_posts( $submit_data['user_id'], $this->domain_name, false) > 0 ) {
+      $_contribution = $this->get_contribution( $submit_data['user_id'] );
+      $current_user_meta = get_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', true );
+      $_new_user_meta = array_merge( $current_user_meta, array( 'contribution' => $_contribution ) );
+      update_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', $_new_user_meta );
+    }
+    
+    return;
+  }
+  
+  /**
+   * Tab: items / Action: initial_sync
+   *
+   * @since 1.0.0
+   */
+  public function do_items_initial_sync() {
+    $_message_type = $this->message_type['err'];
+    $_message = null;
+    
+    $submit_data = $this->validate_submit_data();
+    
+    $latest_user_stats = $this->retrieve_authenticated_user_profile( $submit_data['user_id'] );
+    $total_items = $latest_user_stats['items_count'];
+    if ( $total_items > 0 ) {
+      // Get Qiita items
+      $_api_calls = ceil( $total_items / 100 );
+      $_api_calls = $_api_calls > 100 ? 100 : intval( $_api_calls );
+      $_current_page = 1;
+      $_per_page = 100;
+      
+      $_timezone = get_option( 'timezone_string' );
+      date_default_timezone_set( $_timezone );
+      
+      while ($_api_calls > 0) {
+        $_items = $this->get_authenticated_user_items( $_current_page, $_per_page );
+        foreach ($_items as $_i => $_item) {
+          $post_id = $this->wpqt_upsert_post( $submit_data['user_id'], $_item );
+          
+          $_post_meta = array(
+            'item_id' => $_item->id, 
+            'markdown_body' => $_item->body, 
+            'coediting' => strval( $_item->coediting ), 
+            'origin_url' => $_item->url, 
+            'stocks' => $this->get_item_stocks( $_item->id, $post_id ), 
+          );
+          foreach ( $_post_meta as $_key => $_value ) {
+            update_post_meta( $post_id, 'wpqt_' . $_key, $_value );
+          }
+          # break; // For debug
+        }
+        $_current_page++;
+        $_api_calls--;
+      }
+      
+    } else {
+      $_message = __('Authenticated user does not have articles to Qiita.', $this->domain_name); // 認証されたユーザーはQiitaに記事がありません。
+    }
+    
+    return;
+  }
+  
+  
+  /**
+   * Tab: items / Action: resync_item
+   *
+   * @since 1.0.0
+   */
+  public function do_items_resync_item() {
+    $_message_type = $this->message_type['err'];
+    $_message = null;
+    
+    $submit_data = $this->validate_submit_data();
+    
+    $actual_item_id = get_post_meta( $submit_data[$this->domain_name]['post_id'], 'wpqt_item_id', true );
+    if ( $actual_item_id === $submit_data[$this->domain_name]['item_id'] ) {
+      $_item = $this->get_single_item( $actual_item_id );
+      $post_id = $this->wpqt_upsert_post( $submit_data['user_id'], $_item );
+      
+      $_post_meta = array(
+        'item_id' => $_item->id, 
+        'markdown_body' => $_item->body, 
+        'coediting' => strval( $_item->coediting ), 
+        'origin_url' => $_item->url, 
+        'stocks' => $this->get_item_stocks( $_item->id, $post_id ), 
+      );
+      foreach ( $_post_meta as $_key => $_value ) {
+        update_post_meta( $post_id, 'wpqt_' . $_key, $_value );
+      }
+    }
+    
+    return;
   }
   
   /**
@@ -837,10 +934,14 @@ final class WpQiitaMain extends WpQiitaUtils {
     $_message_type = $this->message_type['err'];
     $_message = null;
     
-    if ( empty( $page ) || intval( $page ) < 1 || intval( $page ) > 100) 
+    if ( empty( $page ) || intval( $page ) < 1 ) {
       $page = 1;
-    if ( empty( $per_page ) || intval( $per_page ) < 1 || intval( $per_page ) > 100) 
+    }
+    $page = intval( $page ) > 100 ? 100 : intval( $page );
+    if ( empty( $per_page ) || intval( $per_page ) < 1 ) {
       $per_page = 20;
+    }
+    $per_page = intval( $per_page ) > 100 ? 100 : intval( $per_page );
     
     global $user_ID;
     get_currentuserinfo();
@@ -871,37 +972,96 @@ final class WpQiitaMain extends WpQiitaUtils {
   }
   
   /**
-   * Retrieve authenticated user items
+   * Retrive a item of specific id
    *
    * @since 1.0.0
    *
    * @param string $item_id [required]
-   * @return int
+   * @return mixed
    */
-  public function get_item_stocks( $item_id=null ) {
+  public function get_single_item( $item_id=null ) {
     $_message_type = $this->message_type['err'];
     $_message = null;
     
-    if (empty($item_id)) 
-      return 0;
+    if ( empty( $item_id ) ) 
+      return false;
     
     global $user_ID;
     get_currentuserinfo();
     
     $current_user_meta = get_user_meta($user_ID, 'wpqt_qiita_authenticated_user', true);
-    $reference_item_stocks = get_user_meta($user_ID, 'wpqt_qiita_item_stocks_cache', true);
-    $this->token = empty($this->token) ? $current_user_meta['access_token'] : $this->token;
-    if (!empty($reference_item_stocks) && is_array($reference_item_stocks) && array_key_exists($item_id, $reference_item_stocks)) {
-      $start_page = floor(intval($reference_item_stocks[$item_id]) / 100);
-      $start_page = $start_page > 1 ? $start_page - 1 : 1;
-      $stocks = ($start_page - 1) * 100;
-    } else {
-      $start_page = 1;
-      $stocks = 0;
+    $this->token = empty( $this->token ) ? $current_user_meta['access_token'] : $this->token;
+    $url = $this->get_api_url( array( 'items', $item_id ) );
+    if ( method_exists( $this, 'request_api' ) ) {
+      $request_args = array(
+        'method' => 'GET', 
+        'headers' => array(
+          'Content-Type' => 'application/json',
+          'Authorization' => 'Bearer ' . $this->token, 
+        ),
+      );
+      $response = wp_remote_request( $url, $request_args );
     }
-    for ($i=$start_page; $i<=100; $i++) {
-      $url = $this->get_api_url( array( 'items', $item_id, 'stockers' ), array( 'page'=>$i, 'per_page'=>100 ));
-      if (method_exists($this, 'request_api')) {
+    
+    if ( $this->validate_response_code( $response ) ) {
+      // Success
+      $_parse_response = json_decode( wp_remote_retrieve_body( $response ) );
+      $_SESSION['items'] = $_parse_response;
+    } else {
+      // Fails
+      $_parse_response = array();
+    }
+    
+    return $_parse_response;
+  }
+  
+  /**
+   * Retrieve authenticated item stocks
+   *
+   * @since 1.0.0
+   *
+   * @param string $item_id [required]
+   * @param int $post_id [optional] This processing performance is improved when specified the synchronizing post ID.
+   * @return int $stocks
+   */
+  public function get_item_stocks( $item_id=null, $post_id=null ) {
+    $_message_type = $this->message_type['err'];
+    $_message = null;
+    $stocks = 0;
+    
+    if (empty($item_id)) 
+      return $stocks;
+    
+    global $user_ID;
+    get_currentuserinfo();
+    
+    $current_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
+    if ( empty( $post_id ) || $post_id < 1 ) {
+      $_posts = get_posts( array(
+        'numberposts' => -1, 
+        'post_type' => $this->domain_name, 
+        'author' => $user_ID, 
+        'meta_key' => 'wpqt_item_id', 
+        'meta_value' => $item_id
+      ) );
+      if ( ! empty( $_posts ) ) 
+        $post_id = $_posts[0]->ID;
+    }
+    if ( empty( $post_id ) || $post_id < 1 ) 
+      return $stocks;
+    
+    if ( $item_id === get_post_meta( $post_id, 'wpqt_item_id', true ) ) 
+      $reference_item_stocks = get_post_meta( $post_id, 'wpqt_stocks', true );
+    
+    $reference_item_stocks = isset( $reference_item_stocks ) && wp_validate_boolean( $reference_item_stocks ) ? intval($reference_item_stocks) : $stocks;
+    $this->token = empty( $this->token ) ? $current_user_meta['access_token'] : $this->token;
+    $start_page = floor( $reference_item_stocks / 100 );
+    $start_page = $start_page > 1 ? $start_page - 1 : 1;
+    $stocks = ( $start_page - 1 ) * 100;
+    
+    for ( $i=$start_page; $i<=100; $i++ ) {
+      $url = $this->get_api_url( array( 'items', $item_id, 'stockers' ), array( 'page'=>$i, 'per_page'=>100 ) );
+      if ( method_exists( $this, 'request_api' ) ) {
         $request_args = array(
           'method' => 'GET', 
           'headers' => array(
@@ -910,11 +1070,11 @@ final class WpQiitaMain extends WpQiitaUtils {
           ),
         );
         $response = wp_remote_request( $url, $request_args );
-        if ($this->validate_response_code($response)) {
+        if ( $this->validate_response_code( $response ) ) {
           // Success
-          $_parse_response = json_decode(wp_remote_retrieve_body( $response ));
-          if (count($_parse_response) > 0) {
-            $stocks += count($_parse_response);
+          $_parse_response = json_decode( wp_remote_retrieve_body( $response ) );
+          if ( count( $_parse_response ) > 0 ) {
+            $stocks += count( $_parse_response );
           } else {
             break;
           }
@@ -924,39 +1084,153 @@ final class WpQiitaMain extends WpQiitaUtils {
         }
       }
     }
-    // Various caching process
-    if (array_key_exists('items', $_SESSION) && !empty($_SESSION['items'])) {
-      foreach ($_SESSION['items'] as $_cache_item) {
-        if ($_cache_item->id === $item_id) {
-          $_cache_item->stocks = $stocks;
-          break;
-        }
-      }
-    }
-    if (empty($reference_item_stocks) || !is_array($reference_item_stocks)) 
-      $reference_item_stocks = array();
-    
-    $reference_item_stocks[$item_id] = $stocks;
-    update_user_meta($user_ID, 'wpqt_qiita_item_stocks_cache', $reference_item_stocks);
+    update_post_meta( $post_id, 'wpqt_stocks', $stocks );
     
     return $stocks;
   }
   
   /**
-   * Tab: items / Action: reload_items
+   * Upsert to custom post type `wp-qiita`
+   *
+   * @since 1.0.0
+   *
+   * @param int $user_id [required]
+   * @param object $qiita_item [required] Object of Qiita articles via `get_authenticated_user_items()`
+   * @return mixed Return the post ID if successful in upsert, otherwise is false
+   */
+  public function wpqt_upsert_post( $user_id=null, $qiita_item=null ) {
+    if ( empty( $qiita_item ) || ! is_object( $qiita_item ) ) 
+      return false;
+    
+    $_tags = array();
+    if ( ! empty( $qiita_item->tags ) ) {
+      foreach ( $qiita_item->tags as $_tagobj ) {
+        $_tags[] = $_tagobj->name;
+      }
+    }
+    $_post_atts = array(
+      'post_status' => $qiita_item->private ? 'private' : 'publish', 
+      'post_type' => $this->domain_name, 
+      'post_author' => $user_id, // $submit_data['user_id']
+      'post_content' => $qiita_item->rendered_body, 
+      'post_title' => $qiita_item->title, 
+      'tags_input' => $_tags, 
+      'post_name' => $qiita_item->id, 
+      'post_date' => date_i18n( 'Y-m-d H:i:s', strtotime( $qiita_item->created_at ), false ),
+      'post_date_gmt' => date_i18n( 'Y-m-d H:i:s', strtotime( $qiita_item->created_at ), true ),
+      'post_modified' => date_i18n( 'Y-m-d H:i:s', strtotime( $qiita_item->updated_at ), false ),
+      'post_modified_gmt' => date_i18n( 'Y-m-d H:i:s', strtotime( $qiita_item->updated_at ), true ),
+      'guid' => $qiita_item->url, 
+      'post_content_filtered' => $qiita_item->body
+    );
+    
+    if ( count_user_posts( $user_id, $this->domain_name, false ) > 0 ) {
+      $_posts = get_posts( array(
+        'numberposts' => -1, 
+        'post_type' => $this->domain_name, 
+        'author' => $user_id, 
+        'meta_key' => 'wpqt_item_id', 
+        'meta_value' => $qiita_item->id
+      ) );
+      if ( ! empty( $_posts ) ) {
+        $_post_atts['ID'] = $_posts[0]->ID;
+      }
+    }
+    
+    $post_id = wp_insert_post( $_post_atts, false );
+    
+    return $post_id !== 0 ? $post_id : false;
+  }
+  
+  /**
+   * Get contribution
+   *
+   * @since 1.0.0
+   *
+   * @param int $user_id [required]
+   * @return mixed
+   */
+  public function get_contribution( $user_id=null ){
+    if ( empty( $user_id ) || intval( $user_id ) < 1 || count_user_posts( $user_id, $this->domain_name, false) === 0 ) 
+      return false;
+    
+    $_posts = get_posts( array(
+      'numberposts' => -1, 
+      'post_type' => $this->domain_name, 
+      'author' => $user_id
+    ) );
+    if ( ! empty( $_posts ) ) {
+      $contribution = 0;
+      foreach ( $_posts as $_post ) {
+        $contribution += intval( get_post_meta( $_post->ID, 'wpqt_stocks', true ) );
+      }
+    }
+    
+    update_user_meta( $user_id, 'contribution', $contribution );
+    
+    return $contribution;
+  }
+  
+  
+  /**
+   * Tab: items / Action: resync_all
    *
    * @since 1.0.0
    */
-  public function do_items_reload_items() {
-    $_message_type = $this->message_type['err'];
-    $_message = null;
+  public function do_items_resync_all() {
     
-    $submit_data = $this->validate_submit_data();
-    unset($_SESSION[$submit_data['active_tab']]);
+    return $this->do_items_initial_sync();
     
-    return;
   }
   
+  /**
+   * Create post type for this plugin
+   *
+   * @since 1.0.0
+   */
+  public function create_post_type() {
+    $post_type = $this->domain_name;
+    
+    $labels = array(
+      'name'               => __( 'Qiita Articles', $this->domain_name ), // post type general name
+      'singular_name'      => __( 'Qiita Article', $this->domain_name ), // post type singular name
+      'menu_name'          => __( 'Qiita Articles', $this->domain_name ), // admin menu
+      'name_admin_bar'     => __( 'Qiita Article', $this->domain_name ), // add new on admin bar
+      'add_new'            => __( 'Add New', $this->domain_name ),
+      'add_new_item'       => __( 'Add New Article', $this->domain_name ),
+      'new_item'           => __( 'New Article', $this->domain_name ),
+      'edit_item'          => __( 'Edit Article', $this->domain_name ),
+      'view_item'          => __( 'View Article', $this->domain_name ),
+      'all_items'          => __( 'All Articles', $this->domain_name ),
+      'search_items'       => __( 'Search Articles', $this->domain_name ),
+      'parent_item_colon'  => __( 'Parent Articles:', $this->domain_name ),
+      'not_found'          => __( 'No Articles found.', $this->domain_name ),
+      'not_found_in_trash' => __( 'No Articles found in Trash.', $this->domain_name )
+    );
+    
+    $args = array(
+      'labels'             => $labels,
+      'description'        => __( 'Articles that are synchronized from Qiita.', $this->domain_name ),
+      'public'             => true,
+      'publicly_queryable' => true,
+      'show_ui'            => true,
+      'show_in_menu'       => true,
+      'query_var'          => true,
+      'rewrite'            => array( 'slug' => $this->domain_name ),
+      'capability_type'    => 'post',
+      'taxonomies'        => array( 'post_tag' ),
+      'has_archive'        => true,
+      'hierarchical'       => false,
+      'menu_position'      => null,
+      'supports'           => array( 'title', 'editor', 'author', 'thumbnail', 'excerpt', 'custom-fields', 'comments' )
+    );
+    // Filter the registration definitions of custom post type
+    //
+    // @since 1.0.0
+    $args = apply_filters( 'wp-qiita/register_post_type', $args );
+    
+    register_post_type( $post_type, $args );
+  }
   
   
   

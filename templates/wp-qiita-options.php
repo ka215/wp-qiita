@@ -51,7 +51,8 @@ $wpqt_nonce_action = implode( '/', array( site_url(), $this->domain_name, $user_
   
   <!-- Tab panes -->
   <div class="tab-content">
-    <div role="tabpanel" class="tab-pane<?php if ($tmpl_current_tab === 'activation') : ?> active<?php endif; ?>" id="activation">
+    <div class="loader"><?php _e('Now Loading...', $this->domain_name); ?></div>
+    <div role="tabpanel" class="tab-pane<?php if ($tmpl_current_tab === 'activation') : ?> active<?php endif; ?><?php if ( ! array_key_exists( 'tab', $this->query ) ) : ?> loaded<?php endif; ?>" id="activation">
 <?php
 if ( 'activation' === $tmpl_current_tab ) : 
   if ( ! $_is_activated) : 
@@ -288,7 +289,7 @@ $_autopost = isset( $_qiita_user_meta['autopost'] ) ? wp_validate_boolean( $_qii
           </div><!-- /.form-group:#wpqtAutosyncStatus -->
         <?php endif; ?>
           <div class="form-group">
-            <label for="wpqtAutoPost" class="col-sm-2 control-label"><?php _e('Auto Post', $this->domain_name); ?></label>
+            <label for="wpqtAutoPost" class="col-sm-2 control-label" disabled="disabled"><?php _e('Auto Post', $this->domain_name); ?></label>
             <div class="col-sm-10">
               <div class="checkbox">
                 <label>
@@ -297,6 +298,26 @@ $_autopost = isset( $_qiita_user_meta['autopost'] ) ? wp_validate_boolean( $_qii
               </div>
             </div>
           </div><!-- /.form-group:#wpqtAutosync -->
+          <div class="form-group">
+            <label for="wpqtDeactivate" class="col-sm-2 control-label"><?php _e('Deactivate Options', $this->domain_name); /* 連携解除時の設定 */ ?></label>
+            <div class="col-sm-10">
+              <div class="checkbox">
+                <label>
+                  <input type="checkbox" id="wpqtDeactivate" name="<?php echo esc_attr($this->domain_name); ?>[remove_post]" <?php /* checked( $_remove_post, true ); */ ?>> <?php _e('連携を解除した際に、同期した投稿を削除します。', $this->domain_name); ?>
+                </label>
+              </div>
+            </div>
+          </div><!-- /.form-group:#wpqtDeactivate -->
+          <div class="form-group">
+            <label for="wpqtUDeactivatePlugin" class="col-sm-2 control-label"><?php _e('Deactivate Plugin', $this->domain_name); /* プラグイン無効化設定 */ ?></label>
+            <div class="col-sm-10">
+              <div class="checkbox">
+                <label>
+                  <input type="checkbox" id="wpqtDeactivatePlugin" name="<?php echo esc_attr($this->domain_name); ?>[deactivate_qiita]" <?php /* checked( $_deactivate_qiita, true ); */ ?>> <?php _e('プラグインを無効化した際に、Qiitaとの連携を解除します。', $this->domain_name); ?>
+                </label>
+              </div>
+            </div>
+          </div><!-- /.form-group:#wpqtDeactivate -->
           
           <div class="form-group">
             <div class="col-sm-offset-2 col-sm-10">
@@ -371,7 +392,6 @@ $last_name = isset( $_name_elements[1] ) && ! empty( $_name_elements[1] ) ? $_na
 $_upload_limit = size_format( $_qiita_user_meta['image_monthly_upload_limit'], 0 );
 $_upload_remaining = size_format( $_qiita_user_meta['image_monthly_upload_remaining'], 2 );
 $_team_only = $_qiita_user_meta['team_only'] ? 'TRUE' : 'FALSE';
-// test
 if ( isset( $_qiita_user_meta['contribution'] ) || ! empty( $_qiita_user_meta['contribution'] ) ) {
   $_is_contribution = true;
   $_contribution = $_qiita_user_meta['contribution'];
@@ -552,27 +572,18 @@ if ( isset( $_qiita_user_meta['contribution'] ) || ! empty( $_qiita_user_meta['c
 $current_page = array_key_exists('cp', $this->query) && !empty($this->query['cp']) && intval($this->query['cp']) > 0 ? intval($this->query['cp']) : 1;
 $per_page = array_key_exists('pp', $this->query) && !empty($this->query['pp']) && intval($this->query['pp']) > 0 ? intval($this->query['pp']) : 20;
 $start_index = ($current_page - 1) * $per_page;
-/*
-if ( array_key_exists('items', $_SESSION) && !empty($_SESSION['items']) ) {
-  $_items = array();
-  $_get_start = ($current_page - 1) * $per_page;
-  for ($i=$_get_start; $i<($_get_start + $per_page); $i++) {
-    $_items[] = $_SESSION['items'][$i];
-  }
-}
-*/
-$_items = $this->get_authenticated_user_items( $current_page, $per_page );
+$_items = get_posts( array( 'posts_per_page' => $per_page, 'offset' => $start_index, 'post_type' => $this->domain_name, 'author' => $user_ID, 'post_status' => 'publish,private,draft' ) );
 $_indices = array(
   'index' => '#', 
   'title' => __('Title', $this->domain_name), 
   'stocks' => __('Stocks', $this->domain_name), 
-  'sync' => __('Synchronizing', $this->domain_name), 
   'excerpt' => __('Excerpt', $this->domain_name), 
   'tags' => __('Tags', $this->domain_name), 
   'coediting' => __('Co Editing', $this->domain_name), 
   'private' => __('Private', $this->domain_name), 
   'created' => __('Created at', $this->domain_name), 
   'updated' => __('Updated at', $this->domain_name), 
+  'operate' => __('Operations', $this->domain_name), 
 );
 if ($_qiita_user_meta['team_only']) {
   unset($_indices['excerpt'], $_indices['private']);
@@ -580,12 +591,20 @@ if ($_qiita_user_meta['team_only']) {
   unset($_indices['excerpt'], $_indices['coediting']);
 }
 ?>
+  <?php if ( ! post_type_exists( $this->domain_name ) || empty( $_items ) ) : ?>
+    <div class="center-block">
+      <p class="text-info"><?php _e('Not yet synchronized articles of the Qiita into WordPress. Are you sure you want to synchronize the Qiita articles?', $this->domain_name); ?></p>
+      <p class="text-info"><?php _e('Also you should be noted that the synchronized articles from Qiita will be incorporated into WordPress as a custom post type "wp-qiita".', $this->domain_name); ?></p>
+      <p class="text-info"><?php _e('If you have a lot of articles at the Qiita, please note that the synchronization maybe take long time.', $this->domain_name); ?></p>
+      <button class="btn btn-primary btn-lg" type="button" id="initial-sync" data-button-action="initial_sync"><?php _e('Synchronize the Qiita articles', $this->domain_name); ?></button>
+    </div>
+  <?php else : ?>
     <div class="panel panel-default">
       <div class="panel-body form-inline">
         <div class="form-group pull-right">
           <label for="change-perpage-number"><?php _e('Display Item Per Page', $this->domain_name); ?>: </label>
-          <input type="number" name="<?php echo esc_attr($this->domain_name); ?>[change_perpage]" class="form-control" id="change-perpage-number" min="1" max="100" value="<?php echo $per_page; ?>">
-          <button class="btn btn-default" type="button" id="reload-items" data-button-action="reload_items"><span class="dashicons dashicons-update"></span></button>
+          <input type="number" name="<?php echo esc_attr($this->domain_name); ?>[change_perpage]" class="form-control" id="change-perpage-number" min="1" max="100" value="<?php echo $per_page; ?>" data-show-pages="<?php echo $per_page; ?>">
+          <button class="btn btn-default" type="button" id="resync-all-items" data-button-action="resync_all"><span class="dashicons dashicons-update"></span> <?php _e('Resync All', $this->domain_name); ?></button>
         </div>
       </div>
       
@@ -600,45 +619,31 @@ if ($_qiita_user_meta['team_only']) {
         <tbody>
         <?php foreach ($_items as $_i => $_item) : ?>
           <?php
+  $_item_id = get_post_meta( $_item->ID, 'wpqt_item_id', true );
   $_item_tags = array();
-  foreach ($_item->tags as $_tag) {
+  foreach ( wp_get_post_tags( $_item->ID ) as $_tag ) {
     $_item_tags[] = $_tag->name;
   }
-  $_stocks = null;
-  if (array_key_exists('items', $_SESSION) && !empty($_SESSION['items'])) {
-    foreach ($_SESSION['items'] as $_cache_item) {
-      if ($_cache_item->id === $_item->id) {
-        if (isset($_cache_item->stocks) && !empty($_cache_item->stocks)) {
-          $_stocks = $_cache_item->stocks;
-          break;
-        }
-      }
-    }
-  }
+  $_stocks = get_post_meta( $_item->ID, 'wpqt_stocks', true );
   $_stocks = empty($_stocks) ? $this->get_item_stocks( $_item->id ) : $_stocks;
-  $_sync_posts = $this->retrieve_by_postmeta( 'qiita-item-id', $_item->id );
-  if (is_array($_sync_posts)) {
-    $_is_sync_post = true;
-  } else {
-    $_is_sync_post = false;
-  }
   $_excerpt = wp_trim_words( str_replace('　', '', $_item->body), 32, '...' );
   $_switching_item = $_qiita_user_meta['team_only'] ? 'coediting' : 'private';
   // $_switching_item_value = $_item->$_switching_item ? __('True', $this->domain_name) : __('False', $this->domain_name);
   $_switching_item_value = $_item->$_switching_item ? 'marker text-success' : 'no-alt text-muted';
 ?>
-          <tr id="<?php echo esc_attr($_item->id); ?>">
+          <tr id="post-<?php echo esc_attr($_item->ID); ?>">
             <td class="item-index"><?php echo $start_index + $_i + 1; ?></td>
-            <td class="item-title"><a href="<?php echo esc_url($_item->url); ?>" target="_blank"><span class="wpqt-qiita-square"></span> <?php echo $_item->title; ?></a></td>
+            <td class="item-title"><a href="<?php echo esc_url($_item->guid); ?>" target="_blank"><span class="wpqt-qiita-square"></span> <?php echo $_item->post_title; ?></a></td>
             <td class="item-stocks"><?php echo $_stocks; ?></td>
-            <td class="item-sync">
-              <span class="dashicons dashicons-wordpress text-<?php if ($_is_sync_post) : ?>primary<?php else : ?>muted<?php endif; ?>"></span> <?php echo $_is_sync_post ? __('During', $this->domain_name) : __('Unsynchronized', $this->domain_name); ?>
-            </td>
             <?php if (array_key_exists('excerpt', $_indices)) : ?><td class="item-excerpt"><?php echo $_excerpt; ?></td><?php endif; ?>
             <td class="item-tags"><?php echo implode(', ', $_item_tags); ?></td>
             <td class="item-<?php echo $_switching_item; ?>"><span class="dashicons dashicons-<?php echo $_switching_item_value; ?>"></span></td>
-            <td class="item-created"><?php echo $this->wpqt_date_format( $_item->created_at ); ?></td>
-            <td class="item-updated"><?php echo $this->wpqt_date_format( $_item->updated_at ); ?></td>
+            <td class="item-created"><?php echo $this->wpqt_date_format( $_item->post_date ); ?></td>
+            <td class="item-updated"><?php echo $this->wpqt_date_format( $_item->post_modified ); ?></td>
+            <td class="item-sync">
+              <button class="btn btn-default btn-sm" type="button" data-button-action="resync_item" data-post-id="<?php echo esc_attr( $_item->ID ); ?>" data-item-id="<?php echo esc_attr( $_item_id ); ?>"><span class="dashicons dashicons-update"></span></button>
+              <button class="btn btn-default btn-sm" type="button" data-button-action="remove_item" data-post-id="<?php echo esc_attr( $_item->ID ); ?>" data-item-id="<?php echo esc_attr( $_item_id ); ?>"><span class="dashicons dashicons-trash"></span></button>
+            </td>
           </tr>
         <?php endforeach; ?>
         </tbody>
@@ -670,6 +675,7 @@ $max_page = ceil($total_items / $per_page);
         </div>
       </div>
     </div><!-- /.panel -->
+  <?php endif; ?>
 <?php endif; ?>
     </div><!-- /.tab-pane#items -->
     <div role="tabpanel" class="tab-pane<?php if ($tmpl_current_tab === 'comments') : ?> active<?php endif; ?>" id="comments">
