@@ -2,7 +2,7 @@
 Contributors: ka2
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=2YZY4HWYSWEWG&lc=en_US&currency_code=USD&item_name=
 Tags: qiita, qiita api v2
-Requires at least: 3.9
+Requires at least: 4.2
 Tested up to: 4.3.1
 Stable tag: 1.0.0
 License: GPLv2 or later

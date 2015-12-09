@@ -231,6 +231,8 @@ if ( 'activation' === $tmpl_current_tab ) :
         </div><!-- /.panel -->
       </div><!-- /#accordion-->
 <?php else : 
+
+$_show_posttype = isset( $_qiita_user_meta['show_posttype'] ) ? wp_validate_boolean( $_qiita_user_meta['show_posttype'] ) : false;
 $_autosync = isset( $_qiita_user_meta['autosync'] ) ? wp_validate_boolean( $_qiita_user_meta['autosync'] ) : false;
 $_autosync_interval = isset( $_qiita_user_meta['autosync_interval'] ) && intval( $_qiita_user_meta['autosync_interval'] ) > 0 ? intval( $_qiita_user_meta['autosync_interval'] ) : '';
 if ( isset( $_qiita_user_meta['autosync_datetime'] ) && ! empty( $_qiita_user_meta['autosync_datetime'] ) ) {
@@ -240,6 +242,8 @@ if ( isset( $_qiita_user_meta['autosync_datetime'] ) && ! empty( $_qiita_user_me
   $_autosync_status = __('Undefined', $this->domain_name);
 }
 $_autopost = isset( $_qiita_user_meta['autopost'] ) ? wp_validate_boolean( $_qiita_user_meta['autopost'] ) : false;
+$_remove_post = isset( $_qiita_user_meta['remove_post'] ) ? wp_validate_boolean( $_qiita_user_meta['remove_post'] ) : false;
+$_deactivate_qiita = isset( $_qiita_user_meta['deactivate_qiita'] ) ? wp_validate_boolean( $_qiita_user_meta['deactivate_qiita'] ) : false;
 ?>
       <h3 class="text-success"><?php _e('Currently, already Activated.', $this->domain_name); ?></h3>
       
@@ -254,13 +258,24 @@ $_autopost = isset( $_qiita_user_meta['autopost'] ) ? wp_validate_boolean( $_qii
         </div>
       </div>
       
+      <div class="clearfix"></div>
       <div class="activated-options">
-        <h4 class="text-info"><?php _e('Advanced cooperation options', $this->domain_name); ?></h4>
+        <h4 class="text-info"><span class="dashicons dashicons-admin-settings"></span> <?php _e('Advanced cooperation options', $this->domain_name); ?></h4>
         
         <p class="describe"><?php _e('In this options, you can carry out the advanced settings about connection with the Qiita.', $this->domain_name); ?></p>
         
         <div class="form-horizontal">
           <input type="hidden" id="wpqt-advanced_setting" name="<?php echo esc_attr($this->domain_name); ?>[advanced_setting]" value="true">
+          <div class="form-group">
+            <label for="wpqtShowPosttype" class="col-sm-2 control-label"><?php _e('Show Post Type', $this->domain_name); ?></label>
+            <div class="col-sm-10">
+              <div class="checkbox">
+                <label>
+                  <input type="checkbox" id="wpqtShowPosttype" name="<?php echo esc_attr($this->domain_name); ?>[show_posttype]" <?php checked( $_show_posttype, true ); ?>> <?php _e('Checked If you want to show the post type of synchronized Qiita articles in admin menu.', $this->domain_name); ?>
+                </label>
+              </div>
+            </div>
+          </div><!-- /.form-group:#wpqtAutosync -->
           <div class="form-group">
             <label for="wpqtAutosync" class="col-sm-2 control-label"><?php _e('Autosync', $this->domain_name); ?></label>
             <div class="col-sm-10">
@@ -299,21 +314,21 @@ $_autopost = isset( $_qiita_user_meta['autopost'] ) ? wp_validate_boolean( $_qii
             </div>
           </div><!-- /.form-group:#wpqtAutosync -->
           <div class="form-group">
-            <label for="wpqtDeactivate" class="col-sm-2 control-label"><?php _e('Deactivate Options', $this->domain_name); /* 連携解除時の設定 */ ?></label>
+            <label for="wpqtDeactivate" class="col-sm-2 control-label"><?php _e('Deactivate Options', $this->domain_name); ?></label>
             <div class="col-sm-10">
               <div class="checkbox">
                 <label>
-                  <input type="checkbox" id="wpqtDeactivate" name="<?php echo esc_attr($this->domain_name); ?>[remove_post]" <?php /* checked( $_remove_post, true ); */ ?>> <?php _e('連携を解除した際に、同期した投稿を削除します。', $this->domain_name); ?>
+                  <input type="checkbox" id="wpqtDeactivate" name="<?php echo esc_attr($this->domain_name); ?>[remove_post]" <?php checked( $_remove_post, true ); ?>> <?php _e('When you have deactivated connection with the Qiita, to remove all posts that is synchronized.', $this->domain_name); ?>
                 </label>
               </div>
             </div>
           </div><!-- /.form-group:#wpqtDeactivate -->
           <div class="form-group">
-            <label for="wpqtUDeactivatePlugin" class="col-sm-2 control-label"><?php _e('Deactivate Plugin', $this->domain_name); /* プラグイン無効化設定 */ ?></label>
+            <label for="wpqtUDeactivatePlugin" class="col-sm-2 control-label"><?php _e('Deactivate Plugin', $this->domain_name); ?></label>
             <div class="col-sm-10">
               <div class="checkbox">
                 <label>
-                  <input type="checkbox" id="wpqtDeactivatePlugin" name="<?php echo esc_attr($this->domain_name); ?>[deactivate_qiita]" <?php /* checked( $_deactivate_qiita, true ); */ ?>> <?php _e('プラグインを無効化した際に、Qiitaとの連携を解除します。', $this->domain_name); ?>
+                  <input type="checkbox" id="wpqtDeactivatePlugin" name="<?php echo esc_attr($this->domain_name); ?>[deactivate_qiita]" <?php checked( $_deactivate_qiita, true ); ?>> <?php _e('Force deactivate connection with Qiita when you will disable this plugin.', $this->domain_name); ?>
                 </label>
               </div>
             </div>
@@ -694,6 +709,11 @@ $icon_fonts = array(
   'qiita-favicon-reversal' 	=> array( 'desc' => __('Logo of the favicon of Qiita (reversal)', $this->domain_name), 'code' => '<span class="wpqt-qiita-favicon-reversal"></span>', 'content' => '\e904' ), 
   'qiita-square' 			=> array( 'desc' => __('Logo of Qiita in the rounded square', $this->domain_name), 'code' => '<span class="wpqt-qiita-square"></span>', 'content' => '\e905' ), 
 );
+$shortcode_examples = array(
+  'wpqt-icon' 				=> '<code>[wpqt-icon name="qiita-favicon"]</code>,<wbr><code>[wpqt-icon id="3"]</code>', 
+  'wpqt-permalink' 	=> '<code>[wpqt-permalink pid="911" target="_blank"]Link to Qiita[/wpqt-permalink]</code>,<wbr><code>[wpqt-permalink iid="f9834dca40bb3d7e9c8b" html="false"]</code>', 
+  'wpqt-post-stocks' 	=> '<code>[wpqt-post-stocks pid="911"]</code>,<wbr><code>[wpqt-post-stocks iid="f9834dca40bb3d7e9c8b"]</code>', 
+);
 ?>
       <div class="panel panel-default">
         <div class="panel-heading">
@@ -730,7 +750,16 @@ $icon_fonts = array(
         </div>
         <div class="panel-body">
           <?php _e('After you have cooperation with Qiita via this plugin, following shortcodes will be available.', $this->domain_name); ?>
-          <span class="text-muted"><?php _e('In Preparation', $this->domain_name); ?></span>
+          <table class="table" id="shortcodes">
+            <tbody>
+            <?php foreach ( $this->shortcodes as $_shortcode => $_atts ) : ?>
+              <tr id="<?php echo $_shortcode; ?>">
+                <td><pre><code>[<?php echo $_shortcode; ?>]</code></pre></td>
+                <td><?php echo $_atts['description']; ?><div class="example"><?php echo $shortcode_examples[$_shortcode]; ?></div></td>
+              </tr>
+            <?php endforeach; ?>
+            </tbody>
+          </table>
         </div>
       </div>
       

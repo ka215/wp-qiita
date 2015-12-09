@@ -1,12 +1,11 @@
 <?php
 defined( 'WPQT' ) OR wp_die();
 
-if ( class_exists( 'WpQiitaUtils' ) ) :
+if ( class_exists( 'WpQiitaShortcodes' ) ) :
 
-final class WpQiitaMain extends WpQiitaUtils {
+final class WpQiitaMain extends WpQiitaShortcodes {
   
   var $version;
-  var $plugin_enabled;
   var $options;
   var $debug_mode;
   var $errors;
@@ -79,7 +78,14 @@ final class WpQiitaMain extends WpQiitaUtils {
    * @since 1.0.0
    */
   protected function inclusion() {
-    // Currently do nothing
+    
+    /*
+    if ( class_exists( 'WpQiitaWidgets' ) ) {
+      $this->widget = new WpQiitaWidgets;
+      $this->widget->instance();
+    }
+    */
+    
   }
   
   /**
@@ -102,11 +108,11 @@ final class WpQiitaMain extends WpQiitaUtils {
       // @link http://codex.wordpress.org/Function_Reference/register_post_type
       add_action( 'init', array( $this, 'create_post_type' ) );
     }
-    add_action( 'widget_init', array( $this, 'wpqt_widget' ) );
+    add_action( 'widgets_init', array( $this, 'wpqt_widgets' ) );
     add_action( 'wp_loaded', array( $this, 'wpqt_wp_loaded' ) ); // Fired once WordPress, all plugins, and the theme are fully loaded
     add_action( 'wp-qiita/autosync', array( $this, 'wpqt_autosync' ) ); // Add New Action
     
-    if (is_admin()) {
+    if ( is_admin() ) {
       add_action( 'admin_menu', array( $this, 'wpqt_admin_menu' ) );
       add_action( 'admin_init', array( $this, 'wpqt_admin_init' ) );
       add_action( 'pre_get_posts', array( $this, 'wpqt_pre_get_posts' ) );
@@ -120,6 +126,7 @@ final class WpQiitaMain extends WpQiitaUtils {
       // Filters
       add_filter( 'plugin_action_links', array( $this, 'modify_plugin_action_links' ), 10, 2 );
       add_filter( 'admin_body_class', array( $this, 'add_body_classes' ) );
+      add_filter( 'wp-qiita/register_post_type', array( $this, 'wpqt_custom_post_type' ) );
       
     } else {
       add_action( 'pre_get_posts', array( $this, 'wpqt_pre_get_posts' ) );
@@ -152,21 +159,21 @@ final class WpQiitaMain extends WpQiitaUtils {
     load_plugin_textdomain( $this->domain_name )
     or load_plugin_textdomain( $this->domain_name, false, $this->plugin_dir_name . '/langs' );
     
-    // Whether this plugin has been loaded
-    $this->plugin_enabled = true;
-    
   }
   
   public function wpqt_init() {
     // Set ajax action name
     $this->plugin_ajax_action = 'wpqt_ajax_handler';
     
-    // Session initialinze
+    // Session initialize
     if (!session_id()) 
       @session_start();
     
     // Start output buffering
     ob_start();
+    
+    // Shortcodes initialize
+    $this->register_shortcodes();
     
     // Set current query strings
     if (is_admin()) {
@@ -177,8 +184,10 @@ final class WpQiitaMain extends WpQiitaUtils {
     
   }
   
-  public function wpqt_widget() {
-    // Currently do nothing
+  public function wpqt_widgets() {
+    
+    register_widget( 'WpQiitaWidget' );
+    
   }
   
   public function wpqt_wp_loaded() {
@@ -194,12 +203,22 @@ final class WpQiitaMain extends WpQiitaUtils {
     $load_wpqt_assets = false;
     if ( is_admin() && array_key_exists('page', $this->query) && 'wp-qiita-options' === $this->query['page'] ) {
       $load_wpqt_assets = true;
-/*
     } else
-    if ( ! is_admin() && shortcode_exist() ) {
-      $load_wpqt_assets = true;
-*/
+    if ( ! is_admin() ) {
+      if ( is_active_widget( false, false, $this->id_base, true ) ) {
+      } else {
+        global $post;
+              if ( is_a( $post, 'WP_Post' ) ) {
+        foreach ( $this->shortcodes as $_shortcode => $_atts ) {
+var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
+          if ( has_shortcode( $post->post_content, $_shortcode ) ) {
+            $load_wpqt_assets = true;
+            break;
+          }
+        }
+      }
     }
+    var_dump( $load_wpqt_assets );
     if ( ! $load_wpqt_assets ) 
       return;
     
@@ -246,6 +265,19 @@ final class WpQiitaMain extends WpQiitaUtils {
   
   public function add_body_classes( $classes ) {
     // Currently do nothing
+  }
+  
+  public function wpqt_custom_post_type( $args ) {
+    global $user_ID;
+    get_currentuserinfo();
+    
+    $current_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
+    if ( isset( $current_user_meta['show_posttype'] ) ) {
+      $args['show_in_menu'] = $current_user_meta['show_posttype'];
+    } else {
+      $args['show_in_menu'] = false;
+    }
+    return $args;
   }
   
   public function wpqt_footer() {
@@ -565,7 +597,9 @@ final class WpQiitaMain extends WpQiitaUtils {
           $_parse_response = json_decode(wp_remote_retrieve_body( $response ));
           $this->token = $_parse_response->token;
           $_qiita_user_meta = array( 'access_token' => $this->token, 'activated' => true );
-          
+          $_current_user_meta = get_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', true );
+          if ( ! empty( $_current_user_meta ) ) 
+            $_qiita_user_meta = array_merge( $_current_user_meta, $_qiita_user_meta );
           update_user_meta($_SESSION['activation']['user_id'], 'wpqt_qiita_authenticated_user', $_qiita_user_meta);
           
           $_message = __('Activation successful. You will work with Qiita.', $this->domain_name);
@@ -620,11 +654,14 @@ final class WpQiitaMain extends WpQiitaUtils {
       $response = $this->request_api( $url, 'get', array() );
     }
     # var_dump([wp_remote_retrieve_body( $response ), wp_remote_retrieve_headers( $response ), wp_remote_retrieve_header( $response, 'status' ), wp_remote_retrieve_response_code( $response ), wp_remote_retrieve_response_message( $response ) ]);
-    if ($this->validate_response_code($response)) {
+    if ( $this->validate_response_code( $response ) ) {
       // Success
-      $_parse_response = json_decode(wp_remote_retrieve_body( $response ));
-      $_qiita_user_meta = array_merge((array)$_parse_response, array( 'access_token' => $this->token, 'activated' => true ));
-      update_user_meta($submit_data['user_id'], 'wpqt_qiita_authenticated_user', $_qiita_user_meta);
+      $_parse_response = json_decode( wp_remote_retrieve_body( $response ) );
+      $_qiita_user_meta = array_merge( (array) $_parse_response, array( 'access_token' => $this->token, 'activated' => true ) );
+      $_current_user_meta = get_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', true );
+      if ( ! empty( $_current_user_meta ) ) 
+        $_qiita_user_meta = array_merge( $_current_user_meta, $_qiita_user_meta );
+      update_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', $_qiita_user_meta );
       
       $_message = __('Activation successful. You will work with Qiita.', $this->domain_name);
       $_message_type = $this->message_type['note'];
@@ -649,9 +686,20 @@ final class WpQiitaMain extends WpQiitaUtils {
     $_message = null;
     
     $submit_data = $this->validate_submit_data();
-    unset($_SESSION[$submit_data['active_tab']]);
+    unset( $_SESSION[$submit_data['active_tab']] );
     
-    if (update_user_meta($submit_data['user_id'], 'wpqt_qiita_authenticated_user', array())) {
+    $_update_user_meta = get_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', true );
+    foreach ( $_update_user_meta as $_key => $_val ) {
+      if ( in_array( $_key, array( 'activated', 'show_posttype', 'autosync', 'autosync_interval', 'remove_post', 'deactivate_qiita' ) ) ) {
+        if ( 'activated' === $_key ) 
+          $_update_user_meta[$_key] = false;
+        if ( 'remove_post' === $_key && $_val ) 
+          $this->remove_posts_in_post_type( $this->domain_name, $submit_data['user_id'] );
+      } else {
+        unset( $_update_user_meta[$_key] );
+      }
+    }
+    if ( update_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', $_update_user_meta ) ) {
       // Success
       $_message = __('Inactivation successful.', $this->domain_name);
       $_message_type = $this->message_type['note'];
@@ -679,7 +727,7 @@ final class WpQiitaMain extends WpQiitaUtils {
     $adv_options = $submit_data[$this->domain_name];
     foreach ( $adv_options as $_key => $_val ) {
       // for boolean var
-      if ( in_array( $_key, array( 'autosync', 'autopost' ) ) ) 
+      if ( in_array( $_key, array( 'show_posttype', 'autosync', 'autopost', 'remove_post', 'deactivate_qiita' ) ) ) 
         $adv_options[$_key] = wp_validate_boolean( $_val );
     }
     if ( intval( $adv_options['autosync_interval'] ) < 1 ) {
@@ -813,8 +861,11 @@ final class WpQiitaMain extends WpQiitaUtils {
       }
       
     } else {
-      $_message = __('Authenticated user does not have articles to Qiita.', $this->domain_name); // 認証されたユーザーはQiitaに記事がありません。
+      $_message = __('Authenticated user does not have articles to Qiita.', $this->domain_name);
     }
+    
+    if ( ! empty($_message)) 
+      $this->register_admin_notices( $_message_type, $_message, 1, true );
     
     return;
   }
@@ -850,6 +901,38 @@ final class WpQiitaMain extends WpQiitaUtils {
     
     return;
   }
+  
+  /**
+   * Tab: items / Action: remove_item
+   *
+   * @since 1.0.0
+   */
+  public function do_items_remove_item() {
+    $_message_type = $this->message_type['err'];
+    $_message = null;
+    
+    $submit_data = $this->validate_submit_data();
+    
+    $actual_item_id = get_post_meta( $submit_data[$this->domain_name]['post_id'], 'wpqt_item_id', true );
+    
+    if ( $actual_item_id === $submit_data[$this->domain_name]['item_id'] ) {
+      if ( wp_delete_post( $submit_data[$this->domain_name]['post_id'] ) ) {
+        // Success
+        $_message = __('Removed the post that is synchronized to WordPress.', $this->domain_name);
+        $_message_type = $this->message_type['note'];
+      } else {
+        // Fails
+        $_message = __('Failed to delete the synchronized post.', $this->domain_name);
+      }
+    }
+    
+    if ( ! empty($_message)) 
+      $this->register_admin_notices( $_message_type, $_message, 1, true );
+    
+    return;
+  }
+  
+  
   
   /**
    * Checked whether the current has been activated
@@ -1232,7 +1315,35 @@ final class WpQiitaMain extends WpQiitaUtils {
     register_post_type( $post_type, $args );
   }
   
-  
+  /**
+   * Remove posts in specific post type
+   *
+   * @since 1.0.0
+   *
+   * @param string $post_type [required]
+   * @param int $user_id [optional] Note: If not specified post of all users will be subject to.
+   * @return void
+   */
+  public function remove_posts_in_post_type( $post_type=null, $user_id=null ) {
+    if ( empty( $post_type ) || ! post_type_exists( $post_type ) ) 
+      return;
+    
+    $_posts_to_be_deleted_args = array(
+      'numberposts' => -1, 
+      'post_type' => $post_type, 
+    );
+    if ( ! empty( $user_id ) && intval( $user_id ) > 0 ) {
+      $_posts_to_be_deleted_args['author'] = intval( $user_id );
+    }
+    
+    $_posts = get_posts( $_posts_to_be_deleted_args );
+    if ( ! empty( $_posts ) ) {
+      foreach ( $_posts as $_post ) {
+        wp_delete_post( $_post->ID );
+      }
+    }
+    
+  }
   
   /**
    * Global Hooks for this plugin
@@ -1244,14 +1355,14 @@ final class WpQiitaMain extends WpQiitaUtils {
    * since 1.0.0
    */
   public function plugin_activate() {
-    if (!current_user_can('activate_plugins') || $this->plugin_enabled) 
+    if ( ! current_user_can( 'activate_plugins' ) ) 
       return;
     
     $plugin = isset( $_REQUEST['plugin'] ) ? $_REQUEST['plugin'] : '';
     check_admin_referer( "activate-plugin_{$plugin}" );
     ob_start();
     
-    if ($this->plugin_enabled = $this->check_plugin_env()) {
+    if ( $this->check_plugin_env() ) {
       
       // Add rewrite rules
       #$this->prepend_rewrite_rules();
@@ -1275,9 +1386,9 @@ final class WpQiitaMain extends WpQiitaUtils {
   private function check_plugin_env() {
     
     $php_min_version = '5.3';
-    $extensions = [
+    $extensions = array(
       'mbstring', 
-    ];
+    );
     
     $php_current_version = phpversion();
     $this->errors = new WP_Error();
@@ -1311,10 +1422,25 @@ final class WpQiitaMain extends WpQiitaUtils {
    * since 1.0.0
    */
   public function plugin_deactivation() {
-    if (!current_user_can('activate_plugins') || !$this->plugin_enabled) 
+    if ( ! current_user_can( 'activate_plugins' ) ) 
       return;
     
-    $this->plugin_enabled = false;
+    global $user_ID;
+    get_currentuserinfo();
+    
+    $_update_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
+    if ( isset( $_update_user_meta['deactivate_qiita'] ) && $_update_user_meta['deactivate_qiita'] ) {
+      foreach ( $_update_user_meta as $_key => $_val ) {
+        if ( in_array( $_key, array( 'activated', 'show_posttype', 'autosync', 'autosync_interval', 'remove_post', 'deactivate_qiita' ) ) ) {
+          if ( 'activated' === $_key ) 
+            $_update_user_meta[$_key] = false;
+        } else {
+          unset( $_update_user_meta[$_key] );
+        }
+      }
+      update_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', $_update_user_meta );
+      $this->remove_posts_in_post_type( $this->domain_name, $user_ID );
+    }
     
     $message = sprintf(__('Function called: %s; %s', $this->domain_name), __FUNCTION__, __('WP Qiita plugin has been deactivation.', $this->domain_name));
     $this->logger( $message );
@@ -1329,15 +1455,19 @@ final class WpQiitaMain extends WpQiitaUtils {
    * since 1.0.0
    */
   public static function plugin_uninstall() {
-    if ( !current_user_can( 'activate_plagins' ) ) 
+    if ( ! current_user_can( 'activate_plagins' ) ) 
       return;
     
     check_admin_referer( 'bulk-plugins' );
     
-    if ( $this->plugin_main_file != WP_UNINSTALL_PLUGIN ) 
+    if ( $this->plugin_main_file !== WP_UNINSTALL_PLUGIN ) 
       return;
     
-    $this->plugin_enabled = false;
+    global $user_ID;
+    get_currentuserinfo();
+    delete_user_meta( $user_ID, 'wpqt_qiita_authenticated_user' );
+    $this->remove_posts_in_post_type( $this->domain_name );
+    
     $message = sprintf(__('Function called: %s; %s', $this->domain_name), __FUNCTION__, __('WP Qiita plugin uninstall now.', $this->domain_name));
     $this->logger( $message );
     

@@ -143,12 +143,17 @@
               break;
             case 'advanced_setting': 
               if ($('#wpqt-advanced_setting').val() === 'true') {
-                var autosync = $('#wpqtAutosync').clone();
-                form.append( autosync.val(autosync.prop('checked')).attr('type', 'hidden') );
-                var autosync_interval = $('#wpqtAutosyncInterval').clone();
-                form.append( autosync_interval.attr('type', 'hidden') );
-                var autopost = $('#wpqtAutoPost').clone();
-                form.append( autopost.val(autopost.prop('checked')).attr('type', 'hidden') );
+                $('.activated-options').find('[id^=wpqt]').each(function(){
+                  if ( 'INPUT' === $(this).context.tagName && $(this).attr('type') !== 'hidden' ) {
+                    var elm = $(this).clone();
+                    if ( elm.attr('type') === 'checkbox' ) {
+                      elm.val( elm.prop('checked') );
+                    } else
+                    if ( elm.attr('type') === 'radio' ) {
+                    }
+                    form.append( elm.attr( 'type', 'hidden' ) );
+                  }
+                });
                 is_submit = true;
               } else {
                 displayModal('error!');
@@ -168,12 +173,10 @@
               is_submit = true;
               break;
             case 'resync_item': 
+            case 'remove_item': 
               form.append( '<input type="hidden" name="wp-qiita[post_id]" value="'+ $(this).data().postId +'">' );
               form.append( '<input type="hidden" name="wp-qiita[item_id]" value="'+ $(this).data().itemId +'">' );
               is_submit = true;
-              break;
-            case 'remove_item': 
-              is_submit = false;
               break;
             default:
               console.log( buttonAction );
@@ -182,6 +185,8 @@
           }
           
           if (is_submit) {
+            $('.tab-pane.active').removeClass('loaded');
+            $('.loader').css({ position: 'fixed', display: 'block' });
             form.submit();
           } else {
             return false;
@@ -205,11 +210,12 @@
       finalize: function() {
         // JavaScript to be fired on admin pages for `WP Qiita`, after page specific JS is fired
         
-        console.info( $.QueryString );
-        
-        if ($('#' + $.QueryString.tab).hasClass('active')) {
+        if ( $('#' + $.QueryString.tab).hasClass('active') ) {
           $('.loader').css({ position: 'absolute', display: 'none' });
           $('#' + $.QueryString.tab).addClass('loaded');
+        }
+        if ( $('.tab-pane').hasClass('loaded') ) {
+          $('.loader').css({ position: 'absolute', display: 'none' });
         }
         
       }
