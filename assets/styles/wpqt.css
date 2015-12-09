@@ -45,6 +45,45 @@
 	content: "\e905";
 }
 
+/* -- for widgets -- */
+.wp_qiita_widget h3 {
+  position: relative;
+  display: block;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 24px;
+  font-weight: bold;
+  line-height: 1.1;
+  color: inherit;
+  border: none;
+}
+
+.wp_qiita_widget .wpqt-container {
+  font-size: 14px;
+  border-top: dotted 1px #ccc;
+  padding: 10px;
+}
+
+.wp_qiita_widget .wpqt-container ul {
+  list-style-position: outside;
+}
+
+.wp_qiita_widget .wpqt-container ul li {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.wp_qiita_widget .wpqt-container ul li var.stocks {
+  padding: 2px 0.5em;
+  font-style: normal;
+  font-size: 11px;
+  color: #fff;
+  background-color: #59bb0c;
+  border-radius: calc(0.5em + 1px);
+}
+
 
 /* -- admin -- */
 body {
@@ -165,6 +204,21 @@ a:hover, a:focus, a:active { color: #428b09; }
 #icon-fonts .icon-view {
   min-width: 60px;
   text-align: center;
+}
+
+table#shortcodes>tbody td:first-child {
+  min-width: 200px;
+}
+
+ul[id^=wpqt-widget] li {
+  display: table-cell;
+  vertical-align: top;
+}
+
+ul[id^=wpqt-widget] li figcaption {
+  text-align: center;
+  color: #777;
+  font-weight: bold;
 }
 
 /* Loader*/

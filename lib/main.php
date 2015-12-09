@@ -6,7 +6,10 @@ if ( class_exists( 'WpQiitaShortcodes' ) ) :
 final class WpQiitaMain extends WpQiitaShortcodes {
   
   var $version;
-  var $options;
+  var $options; // global options for this plugin
+  var $current_user;
+  var $user_options; // each users local options for this plugin
+  var $widgets;
   var $debug_mode;
   var $errors;
   var $message_type;
@@ -64,7 +67,7 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     // Override core members
     $this->data = array();
     $this->api_request_options['user-agent'] = sprintf( 'WordPress/%s; %s; wp-qiita/%s', $GLOBALS['wp_version'], site_url(), $this->version );
-    $this->options = get_option($this->domain_name . '-options', array());
+    $this->options = get_option( $this->domain_name . '-options', array() );
     $this->message_type = array(
       'note' => $this->domain_name . '-notice', 
       'err' => $this->domain_name . '-error', 
@@ -110,7 +113,7 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     }
     add_action( 'widgets_init', array( $this, 'wpqt_widgets' ) );
     add_action( 'wp_loaded', array( $this, 'wpqt_wp_loaded' ) ); // Fired once WordPress, all plugins, and the theme are fully loaded
-    add_action( 'wp-qiita/autosync', array( $this, 'wpqt_autosync' ) ); // Add New Action
+    add_action( 'wpqt/autosync', array( $this, 'wpqt_autosync' ) ); // Add New Action
     
     if ( is_admin() ) {
       add_action( 'admin_menu', array( $this, 'wpqt_admin_menu' ) );
@@ -119,14 +122,14 @@ final class WpQiitaMain extends WpQiitaShortcodes {
       add_action( 'admin_enqueue_scripts', array( $this, 'wpqt_enqueue_scripts' ) );
       add_action( 'admin_head', array( $this, 'wpqt_head' ) );
       add_action( 'admin_notices', array( $this, 'wpqt_admin_notices' ) );
-      # do_action( 'wp-qiita/get_admin_template', array( $this, 'get_admin_template') ); // Add New Action
+      # do_action( 'wpqt/get_admin_template', array( $this, 'get_admin_template') ); // Add New Action
       add_action( 'admin_footer', array( $this, 'wpqt_footer' ) );
       add_action( 'admin_print_footer_scripts', array( $this, 'wpqt_print_footer_scripts' ) ); // For modal insertion
       
       // Filters
       add_filter( 'plugin_action_links', array( $this, 'modify_plugin_action_links' ), 10, 2 );
       add_filter( 'admin_body_class', array( $this, 'add_body_classes' ) );
-      add_filter( 'wp-qiita/register_post_type', array( $this, 'wpqt_custom_post_type' ) );
+      add_filter( 'wpqt/register_post_type', array( $this, 'wpqt_custom_post_type' ) );
       
     } else {
       add_action( 'pre_get_posts', array( $this, 'wpqt_pre_get_posts' ) );
@@ -165,13 +168,6 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     // Set ajax action name
     $this->plugin_ajax_action = 'wpqt_ajax_handler';
     
-    // Session initialize
-    if (!session_id()) 
-      @session_start();
-    
-    // Start output buffering
-    ob_start();
-    
     // Shortcodes initialize
     $this->register_shortcodes();
     
@@ -182,12 +178,28 @@ final class WpQiitaMain extends WpQiitaShortcodes {
       $this->query = $GLOBALS['_REQUEST'];
     }
     
+    // Set current user local options
+    global $user_ID;
+    get_currentuserinfo();
+    $this->current_user = $user_ID; // guest is `0`
+    $this->user_options = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true ); // guest is `false`
+    
+    // Session initialize
+    if (!session_id()) 
+      @session_start();
+    
+    // Start output buffering
+    ob_start();
+    
   }
   
   public function wpqt_widgets() {
     
-    register_widget( 'WpQiitaWidget' );
+    register_widget( 'WpQiitaWidget' ); // id_base : wp_qiita_widget
     
+    $this->widgets = array(
+      'wp_qiita_widget', 
+    );
   }
   
   public function wpqt_wp_loaded() {
@@ -205,20 +217,8 @@ final class WpQiitaMain extends WpQiitaShortcodes {
       $load_wpqt_assets = true;
     } else
     if ( ! is_admin() ) {
-      if ( is_active_widget( false, false, $this->id_base, true ) ) {
-      } else {
-        global $post;
-              if ( is_a( $post, 'WP_Post' ) ) {
-        foreach ( $this->shortcodes as $_shortcode => $_atts ) {
-var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
-          if ( has_shortcode( $post->post_content, $_shortcode ) ) {
-            $load_wpqt_assets = true;
-            break;
-          }
-        }
-      }
+      $load_wpqt_assets = $this->check_whether_loading_assets( $this->widgets, array_keys( $this->shortcodes ) );
     }
-    var_dump( $load_wpqt_assets );
     if ( ! $load_wpqt_assets ) 
       return;
     
@@ -231,11 +231,16 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
       ), 
       'scripts' => array(
         'jquery-cdn' => array( '//ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js', array(), '1.11.3', false ), 
-        'bootstrap-script-cdn' => array( '//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js', array('jquery-cdn'), '3.3.5', true ), 
-        'blockchain' => array( 'https://blockchain.info/Resources/wallet/pay-now-button.js', array('jquery-cdn'), null, true ), 
-        'wpqt-script' => array( $this->plugin_dir_url . 'assets/scripts/wpqt.js', array('jquery-cdn'), $this->version, true ), 
+        'bootstrap-script-cdn' => array( '//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js', array( 'jquery-cdn' ), '3.3.5', true ), 
+        'blockchain' => array( 'https://blockchain.info/Resources/wallet/pay-now-button.js', array( 'jquery-cdn' ), null, true ), 
+        'wpqt-script' => array( $this->plugin_dir_url . 'assets/scripts/wpqt.js', array( 'jquery-cdn' ), $this->version, true ), 
       )
     );
+    if ( ! is_admin() ) {
+      unset( $assets['styles']['bootstrap-style-cdn'], $assets['scripts']['bootstrap-script-cdn'], $assets['scripts']['blockchain'] );
+      if ( isset( $this->options['load_jquery'] ) && ! $this->options['load_jquery'] ) 
+        unset( $assets['scripts']['jquery-cdn'] );
+    }
     // Filter the assets to be importing in page (before registration)
     //
     // @since 1.0.0
@@ -268,12 +273,19 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
   }
   
   public function wpqt_custom_post_type( $args ) {
+/*
     global $user_ID;
     get_currentuserinfo();
     
     $current_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
     if ( isset( $current_user_meta['show_posttype'] ) ) {
       $args['show_in_menu'] = $current_user_meta['show_posttype'];
+*/
+    if ( isset( $this->options['show_posttype'] ) ) {
+      $args['show_in_menu'] = $this->options['show_posttype'];
+    } else
+    if ( isset( $this->user_options['show_posttype'] ) ) {
+      $args['show_in_menu'] = $this->user_options['show_posttype'];
     } else {
       $args['show_in_menu'] = false;
     }
@@ -418,7 +430,7 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
   }
   
   public function get_admin_template() {
-    // 
+    // Currently do nothing
   }
   
   public function wpqt_admin_page_render() {
@@ -439,26 +451,30 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     $_message_type = $this->message_type['err'];
     $_message = null;
     
+/*
     global $user_ID;
     get_currentuserinfo();
     
     $verify_nonce_action = implode('/', array(site_url(), $this->domain_name, $user_ID, $this->query['page']));
+*/
+    $verify_nonce_action = implode( '/', array( site_url(), $this->domain_name, $this->current_user, $this->query['page'] ) );
     
-    if (!empty($GLOBALS['_POST'])) {
+    if ( ! empty( $GLOBALS['_POST'] ) ) {
       
-      if (check_admin_referer( $verify_nonce_action )) {
+      if ( check_admin_referer( $verify_nonce_action ) ) {
         // Call the worker method of each tab in admin pages
-        $method_elements = array('do');
-        if (isset($this->query['tab']) && !empty($this->query['tab'])) {
+        $method_elements = array( 'do' );
+        if ( isset( $this->query['tab'] ) && ! empty( $this->query['tab'] ) ) {
           $method_elements[] = $this->query['tab'];
-        } elseif (isset($GLOBALS['_POST']['active_tab']) && !empty($GLOBALS['_POST']['active_tab'])) {
+        } else
+        if ( isset( $GLOBALS['_POST']['active_tab'] ) && ! empty( $GLOBALS['_POST']['active_tab'] ) ) {
           $method_elements[] = $GLOBALS['_POST']['active_tab'];
         }
-        if (isset($GLOBALS['_POST']['action']) && !empty($GLOBALS['_POST']['action'])) {
+        if ( isset( $GLOBALS['_POST']['action'] ) && ! empty( $GLOBALS['_POST']['action'] ) ) {
           $method_elements[] = $GLOBALS['_POST']['action'];
         }
-        $worker_method = implode('_', $method_elements);
-        if (method_exists($this, $worker_method)) {
+        $worker_method = implode( '_', $method_elements );
+        if ( method_exists( $this, $worker_method ) ) {
           $this->$worker_method();
         } else {
           // Invalid access
@@ -469,9 +485,10 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
         $_message = __('Invalid access this page.', $this->domain_name);
       }
       
-    } elseif (!empty($GLOBALS['_GET'])) {
+    } else
+    if ( ! empty( $GLOBALS['_GET'] ) ) {
       // OAuth redirection only
-      if (array_key_exists('code', $GLOBALS['_GET']) && !empty($GLOBALS['_GET']['code']) && array_key_exists('state', $GLOBALS['_GET']) && $_SESSION['activation']['_wpnonce'] === $GLOBALS['_GET']['state']) {
+      if ( array_key_exists( 'code', $GLOBALS['_GET'] ) && ! empty( $GLOBALS['_GET']['code'] ) && array_key_exists( 'state', $GLOBALS['_GET'] ) && $_SESSION['activation']['_wpnonce'] === $GLOBALS['_GET']['state'] ) {
         $this->retrieve_access_token( $GLOBALS['_GET']['code'] );
       } else {
         // OAuth error
@@ -484,7 +501,7 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
       
     }
     
-    if (!empty($_message)) 
+    if ( ! empty( $_message ) ) 
       $this->register_admin_notices( $_message_type, $_message, 1, true );
     
     $this->wpqt_admin_notices();
@@ -513,7 +530,7 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
         'flags'  => FILTER_REQUIRE_ARRAY, 
       ),
     );
-    $submit_data = filter_input_array(INPUT_POST, $validations);
+    $submit_data = filter_input_array( INPUT_POST, $validations );
     
     return $submit_data;
   }
@@ -530,32 +547,32 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     $submit_data = $this->validate_submit_data();
     $_SESSION[$submit_data['active_tab']] = array_map( 'stripslashes_deep', $submit_data );
     
-    if (!array_key_exists($this->domain_name, $submit_data) || empty($submit_data[$this->domain_name])) 
+    if ( ! array_key_exists( $this->domain_name, $submit_data ) || empty( $submit_data[$this->domain_name] ) ) 
       $_message = __('Required data are not sent.', $this->domain_name);
     
-    if (!array_key_exists('client_id', $submit_data[$this->domain_name]) || empty($submit_data[$this->domain_name]['client_id'])) 
+    if ( ! array_key_exists( 'client_id', $submit_data[$this->domain_name] ) || empty( $submit_data[$this->domain_name]['client_id'] ) ) 
       $_message = __('Client ID is not specified.', $this->domain_name);
     
-    if (!array_key_exists('scope', $submit_data[$this->domain_name]) || !is_array($submit_data[$this->domain_name]['scope']) || empty($submit_data[$this->domain_name]['scope'])) 
+    if ( ! array_key_exists( 'scope', $submit_data[$this->domain_name] ) || ! is_array( $submit_data[$this->domain_name]['scope'] ) || empty( $submit_data[$this->domain_name]['scope'] ) ) 
       $_message = __('Scopes is not specifed', $this->domain_name);
     
-    $url = $this->get_api_url(array( 'oauth', 'authorize' ));
-    if (method_exists($this, 'oauth_api')) {
+    $url = $this->get_api_url( array( 'oauth', 'authorize' ) );
+    if ( method_exists( $this, 'oauth_api' ) ) {
       $queries = array(
         'client_id=' . $submit_data[$this->domain_name]['client_id'], 
-        'scope=' . implode('+', $submit_data[$this->domain_name]['scope']), 
+        'scope=' . implode( '+', $submit_data[$this->domain_name]['scope'] ), 
         'state=' . $submit_data['_wpnonce'], 
       );
-      header('Location: ' . $url . '?' . implode('&', $queries));
+      header( 'Location: ' . $url . '?' . implode( '&', $queries ) );
       
     } else {
       // Note: I don't understand why it is not working if calling method in the inheritance original wrapper class, yet.
       //
       // @since 1.0.0
-      $response = $this->oauth_api( $submit_data[$this->domain_name]['client_id'], array('read_qiita') );
+      $response = $this->oauth_api( $submit_data[$this->domain_name]['client_id'], array( 'read_qiita' ) );
     }
     
-    if (!empty($_message)) 
+    if ( ! empty( $_message ) ) 
       $this->register_admin_notices( $_message_type, $_message, 1, true );
     
     return;
@@ -573,16 +590,16 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     $_message_type = $this->message_type['err'];
     $_message = null;
     
-    if (empty($code)) {
+    if ( empty( $code ) ) {
       $_message = __('Alternative code to get access token does not exist.', $this->domain_name);
     } else {
-      $url = $this->get_api_url(array('access_tokens'));
+      $url = $this->get_api_url( array( 'access_tokens' ) );
       $body = array(
         'client_id' => $_SESSION['activation'][$this->domain_name]['client_id'], 
         'client_secret' => $_SESSION['activation'][$this->domain_name]['client_secret'], 
         'code' => $code 
       );
-      if (method_exists($this, 'request_api')) {
+      if ( method_exists( $this, 'request_api' ) ) {
         $request_args = array(
           'method' => 'POST', 
           'headers' => array(
@@ -592,29 +609,30 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
         );
         $response = wp_remote_request( $url, $request_args );
         
-        if ($this->validate_response_code($response)) {
+        if ( $this->validate_response_code( $response ) ) {
           // Success
-          $_parse_response = json_decode(wp_remote_retrieve_body( $response ));
+          $_parse_response = json_decode( wp_remote_retrieve_body( $response ) );
           $this->token = $_parse_response->token;
           $_qiita_user_meta = array( 'access_token' => $this->token, 'activated' => true );
           $_current_user_meta = get_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', true );
           if ( ! empty( $_current_user_meta ) ) 
             $_qiita_user_meta = array_merge( $_current_user_meta, $_qiita_user_meta );
-          update_user_meta($_SESSION['activation']['user_id'], 'wpqt_qiita_authenticated_user', $_qiita_user_meta);
+          
+          update_user_meta( $_SESSION['activation']['user_id'], 'wpqt_qiita_authenticated_user', $_qiita_user_meta );
           
           $_message = __('Activation successful. You will work with Qiita.', $this->domain_name);
           $_message_type = $this->message_type['note'];
         } else {
           // Fails
-          $_message = sprintf(__('Your request has been response of "%s". Please check again whether there is a miss in the setting options.', $this->domain_name), wp_remote_retrieve_response_message( $response ));
+          $_message = sprintf( __('Your request has been response of "%s". Please check again whether there is a miss in the setting options.', $this->domain_name), wp_remote_retrieve_response_message( $response ) );
         }
       }
     }
     
-    if (!empty($_message)) 
+    if ( ! empty( $_message ) ) 
       $this->register_admin_notices( $_message_type, $_message, 1, true );
     
-    wp_safe_redirect( admin_url('options-general.php?page=wp-qiita-options') );
+    wp_safe_redirect( admin_url( 'options-general.php?page=wp-qiita-options' ) );
   }
   
   /**
@@ -629,16 +647,16 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     $submit_data = $this->validate_submit_data();
     $_SESSION[$submit_data['active_tab']] = array_map( 'stripslashes_deep', $submit_data );
     
-    if (!array_key_exists($this->domain_name, $submit_data) || empty($submit_data[$this->domain_name])) 
+    if ( ! array_key_exists( $this->domain_name, $submit_data ) || empty( $submit_data[$this->domain_name] ) ) 
       $_message = __('Required data are not sent.', $this->domain_name);
     
-    if (!array_key_exists('access_token', $submit_data[$this->domain_name]) || empty($submit_data[$this->domain_name]['access_token'])) 
+    if ( ! array_key_exists( 'access_token', $submit_data[$this->domain_name] ) || empty( $submit_data[$this->domain_name]['access_token'] ) ) 
       $_message = __('Access token is not specified.', $this->domain_name);
     
     
     $this->token = $submit_data[$this->domain_name]['access_token'];
-    $url = $this->get_api_url(array('authenticated_user'));
-    if (method_exists($this, 'request_api')) {
+    $url = $this->get_api_url( array( 'authenticated_user' ) );
+    if ( method_exists( $this, 'request_api' ) ) {
       $request_args = array(
         'method' => 'GET', 
         'headers' => array(
@@ -646,14 +664,13 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
           'Authorization' => 'Bearer ' . $this->token, 
         ),
       );
-      $response = wp_remote_request( $url, $request_args);
+      $response = wp_remote_request( $url, $request_args );
     } else {
       // Note: I don't understand why it is not working if calling method in the inheritance original wrapper class, yet.
       //
       // @since 1.0.0
       $response = $this->request_api( $url, 'get', array() );
     }
-    # var_dump([wp_remote_retrieve_body( $response ), wp_remote_retrieve_headers( $response ), wp_remote_retrieve_header( $response, 'status' ), wp_remote_retrieve_response_code( $response ), wp_remote_retrieve_response_message( $response ) ]);
     if ( $this->validate_response_code( $response ) ) {
       // Success
       $_parse_response = json_decode( wp_remote_retrieve_body( $response ) );
@@ -690,7 +707,7 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     
     $_update_user_meta = get_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', true );
     foreach ( $_update_user_meta as $_key => $_val ) {
-      if ( in_array( $_key, array( 'activated', 'show_posttype', 'autosync', 'autosync_interval', 'remove_post', 'deactivate_qiita' ) ) ) {
+      if ( in_array( $_key, array( 'activated', 'load_jquery', 'show_posttype', 'autosync', 'autosync_interval', 'remove_post', 'deactivate_qiita' ) ) ) {
         if ( 'activated' === $_key ) 
           $_update_user_meta[$_key] = false;
         if ( 'remove_post' === $_key && $_val ) 
@@ -727,11 +744,11 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     $adv_options = $submit_data[$this->domain_name];
     foreach ( $adv_options as $_key => $_val ) {
       // for boolean var
-      if ( in_array( $_key, array( 'show_posttype', 'autosync', 'autopost', 'remove_post', 'deactivate_qiita' ) ) ) 
+      if ( in_array( $_key, array( 'load_jquery', 'show_posttype', 'autosync', 'autopost', 'remove_post', 'deactivate_qiita' ) ) ) 
         $adv_options[$_key] = wp_validate_boolean( $_val );
     }
     if ( intval( $adv_options['autosync_interval'] ) < 1 ) {
-      $adv_options['autosync_interval'] = 86400; // 60 * 60 * 24 = 1day
+      $adv_options['autosync_interval'] = 14400; // 60 * 60 * 4 = 4hour
     }
     
     $current_user_meta = get_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', true );
@@ -744,11 +761,12 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
         }
       } else {
         // Stop of autosync
-        // $this->update_autosync_schedule( 0 );
+        $this->stop_autosync_schedule();
       }
       $_new_user_meta = array_merge( $current_user_meta, $adv_options );
       
-      if ( update_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', $_new_user_meta ) ) {
+      if ( update_option( $this->domain_name . '-options', $adv_options ) ) {
+        update_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', $_new_user_meta );
         // Success
         $_message = __('Configuration has been changed successfully.', $this->domain_name);
         $_message_type = $this->message_type['note'];
@@ -756,6 +774,8 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
         // Fails
         $_message = __('Configuration changes did not take place.', $this->domain_name);
       }
+      $this->options = $adv_options;
+      $this->user_options = $_new_user_meta;
     }
     
     if (!empty($_message)) 
@@ -807,10 +827,13 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     $this->retrieve_authenticated_user_profile( $submit_data['user_id'] );
     
     if ( count_user_posts( $submit_data['user_id'], $this->domain_name, false) > 0 ) {
+/*
       $_contribution = $this->get_contribution( $submit_data['user_id'] );
       $current_user_meta = get_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', true );
       $_new_user_meta = array_merge( $current_user_meta, array( 'contribution' => $_contribution ) );
       update_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', $_new_user_meta );
+*/
+      $this->update_user_contribution( $submit_data['user_id'] );
     }
     
     return;
@@ -854,12 +877,12 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
           foreach ( $_post_meta as $_key => $_value ) {
             update_post_meta( $post_id, 'wpqt_' . $_key, $_value );
           }
-          # break; // For debug
         }
         $_current_page++;
         $_api_calls--;
       }
       
+      $this->update_user_contribution( $submit_data['user_id'] );
     } else {
       $_message = __('Authenticated user does not have articles to Qiita.', $this->domain_name);
     }
@@ -897,6 +920,7 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
       foreach ( $_post_meta as $_key => $_value ) {
         update_post_meta( $post_id, 'wpqt_' . $_key, $_value );
       }
+      $this->update_user_contribution( $submit_data['user_id'] );
     }
     
     return;
@@ -1026,11 +1050,14 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     }
     $per_page = intval( $per_page ) > 100 ? 100 : intval( $per_page );
     
+/*
     global $user_ID;
     get_currentuserinfo();
     
     $current_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
     $this->token = empty( $this->token ) ? $current_user_meta['access_token'] : $this->token;
+*/
+    $this->token = empty( $this->token ) ? $this->user_options['access_token'] : $this->token;
     $url = $this->get_api_url( array( 'authenticated_user', 'items' ), array( 'page'=>$page, 'per_page'=>$per_page ) );
     if ( method_exists( $this, 'request_api' ) ) {
       $request_args = array(
@@ -1069,11 +1096,14 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     if ( empty( $item_id ) ) 
       return false;
     
+/*
     global $user_ID;
     get_currentuserinfo();
     
     $current_user_meta = get_user_meta($user_ID, 'wpqt_qiita_authenticated_user', true);
     $this->token = empty( $this->token ) ? $current_user_meta['access_token'] : $this->token;
+*/
+    $this->token = empty( $this->token ) ? $this->user_options['access_token'] : $this->token;
     $url = $this->get_api_url( array( 'items', $item_id ) );
     if ( method_exists( $this, 'request_api' ) ) {
       $request_args = array(
@@ -1115,15 +1145,17 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     if (empty($item_id)) 
       return $stocks;
     
+/*
     global $user_ID;
     get_currentuserinfo();
     
     $current_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
+*/
     if ( empty( $post_id ) || $post_id < 1 ) {
       $_posts = get_posts( array(
         'numberposts' => -1, 
         'post_type' => $this->domain_name, 
-        'author' => $user_ID, 
+        'author' => $this->current_user, 
         'meta_key' => 'wpqt_item_id', 
         'meta_value' => $item_id
       ) );
@@ -1137,7 +1169,8 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
       $reference_item_stocks = get_post_meta( $post_id, 'wpqt_stocks', true );
     
     $reference_item_stocks = isset( $reference_item_stocks ) && wp_validate_boolean( $reference_item_stocks ) ? intval($reference_item_stocks) : $stocks;
-    $this->token = empty( $this->token ) ? $current_user_meta['access_token'] : $this->token;
+    //$this->token = empty( $this->token ) ? $current_user_meta['access_token'] : $this->token;
+    $this->token = empty( $this->token ) ? $this->user_options['access_token'] : $this->token;
     $start_page = floor( $reference_item_stocks / 100 );
     $start_page = $start_page > 1 ? $start_page - 1 : 1;
     $stocks = ( $start_page - 1 ) * 100;
@@ -1254,6 +1287,22 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     return $contribution;
   }
   
+  /**
+   * Update contribution
+   *
+   * @since 1.0.0
+   *
+   * @param int $user_id [required]
+   * @return void
+   */
+  public function update_user_contribution( $user_id=null ) {
+    if ( empty( $user_id ) || intval( $user_id ) < 1 ) 
+      $user_id = $this->current_user;
+    
+    $this->user_options['contribution'] = $this->get_contribution( $user_id );
+    update_user_meta( $user_id, 'wpqt_qiita_authenticated_user', $this->user_options );
+    
+  }
   
   /**
    * Tab: items / Action: resync_all
@@ -1297,7 +1346,7 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
       'public'             => true,
       'publicly_queryable' => true,
       'show_ui'            => true,
-      'show_in_menu'       => true,
+      'show_in_menu'       => false,
       'query_var'          => true,
       'rewrite'            => array( 'slug' => $this->domain_name ),
       'capability_type'    => 'post',
@@ -1425,13 +1474,14 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     if ( ! current_user_can( 'activate_plugins' ) ) 
       return;
     
+/*
     global $user_ID;
     get_currentuserinfo();
     
     $_update_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
     if ( isset( $_update_user_meta['deactivate_qiita'] ) && $_update_user_meta['deactivate_qiita'] ) {
       foreach ( $_update_user_meta as $_key => $_val ) {
-        if ( in_array( $_key, array( 'activated', 'show_posttype', 'autosync', 'autosync_interval', 'remove_post', 'deactivate_qiita' ) ) ) {
+        if ( in_array( $_key, array( 'activated', 'load_jquery', 'show_posttype', 'autosync', 'autosync_interval', 'remove_post', 'deactivate_qiita' ) ) ) {
           if ( 'activated' === $_key ) 
             $_update_user_meta[$_key] = false;
         } else {
@@ -1440,6 +1490,22 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
       }
       update_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', $_update_user_meta );
       $this->remove_posts_in_post_type( $this->domain_name, $user_ID );
+    }
+*/
+    if ( isset( $this->options['deactivate_qiita'] ) && $this->options['deactivate_qiita'] ) {
+      foreach ( $this->options as $_key => $_val ) {
+        if ( in_array( $_key, array( 'activated', 'load_jquery', 'show_posttype', 'autosync', 'autosync_interval', 'remove_post', 'deactivate_qiita' ) ) ) {
+          if ( 'activated' === $_key ) {
+            $this->options[$_key] = false;
+            $this->user_options[$_key] = false;
+          }
+        } else {
+          unset( $this->options[$_key], $this->user_options[$_key] );
+        }
+      }
+      update_option( $this->domain_name . '-options', $this->options );
+      update_user_meta( $this->current_user, 'wpqt_qiita_authenticated_user', $this->user_options );
+      $this->remove_posts_in_post_type( $this->domain_name, $this->current_user );
     }
     
     $message = sprintf(__('Function called: %s; %s', $this->domain_name), __FUNCTION__, __('WP Qiita plugin has been deactivation.', $this->domain_name));
@@ -1463,9 +1529,12 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     if ( $this->plugin_main_file !== WP_UNINSTALL_PLUGIN ) 
       return;
     
+/*
     global $user_ID;
     get_currentuserinfo();
     delete_user_meta( $user_ID, 'wpqt_qiita_authenticated_user' );
+*/
+    delete_user_meta( $this->current_user, 'wpqt_qiita_authenticated_user' );
     $this->remove_posts_in_post_type( $this->domain_name );
     
     $message = sprintf(__('Function called: %s; %s', $this->domain_name), __FUNCTION__, __('WP Qiita plugin uninstall now.', $this->domain_name));
@@ -1487,6 +1556,44 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
   }
   
   /**
+   * Checking whether to load this plugin assets (at frontend only)
+   *
+   * @since 1.0.0
+   *
+   * @param array $widgets [optional] array of widget id_bases that you want to check
+   * @param array $shortcodes [optional] array of shortcode name that you want to check
+   * @return boolean
+   */
+  public function check_whether_loading_assets( $widgets=array(), $shortcodes=array() ) {
+    if ( is_admin() ) 
+      return false;
+    
+    $_should_load = false;
+    if ( ! empty( $widgets ) ) {
+      foreach ( $widgets as $_widget ) {
+        $_check = is_active_widget( false, false, $_widget, true );
+        if ( $_check ) {
+          $_should_load = true;
+          break;
+        }
+      }
+    }
+    if ( ! $_should_load && ! empty( $shortcodes ) ) {
+      global $post;
+      if ( is_a( $post, 'WP_Post' ) ) {
+        foreach ( $shortcodes as $_shortcode ) {
+          if ( has_shortcode( $post->post_content, $_shortcode ) ) {
+            $_should_load = true;
+            break;
+          }
+        }
+      }
+    }
+    
+    return $_should_load;
+  }
+  
+  /**
    * Set autosync schedule
    *
    * @since 1.0.0
@@ -1496,13 +1603,39 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
    * @return string $hash
    */
   public function set_autosync_schedule( $user_id=null, $interval=0 ) {
-    if ( ! wp_next_scheduled( 'wp-qiita/autosync' ) ) {
-      // wp_schedule_event( time(), 'daily', 'wpqt/autosync' );
-    }
-    $_hash = md5( $user_id . time() . wp_rand() );
-    wp_schedule_single_event( time() + $interval, 'wpqt/autosync', array( $user_id, $_hash ) );
+    /*
+    if ( ! in_array( $interval, array( 'hourly', 'twicedaily', 'daily' ) ) ) 
+      $interval = 'daily';
+    */
+    $_timezone = get_option( 'timezone_string' );
+    date_default_timezone_set( $_timezone );
+    
+    $_now = time();
+    $_hash = md5( $user_id . $_now . wp_rand() );
+    //wp_schedule_event( $_now, $interval, 'wpqt/autosync', array( $user_id, $_hash ) );
+    wp_schedule_single_event( $_now + $interval, 'wpqt/autosync', array( $user_id, $_hash ) );
     
     return $_hash;
+  }
+  
+  /**
+   * Stop all autosync schedule
+   *
+   * @since 1.0.0
+   */
+  public function stop_autosync_schedule() {
+    
+    $users = get_users( array( 'fields' => array( 'ID' ) ) );
+    foreach ( $users as $_user ) {
+      $last_hash = isset( $this->options['autosync_hash'] ) && ! empty( $this->options['autosync_hash'] ) ? $this->options['autosync_hash'] : null;
+      if ( empty( $last_hash ) ) {
+        $_user_meta = get_user_meta( intval( $_user->ID ), 'wpqt_qiita_authenticated_user', true );
+        if ( $_user_meta && isset( $_user_meta['autosync_hash'] ) ) 
+          $last_hash = $_user_meta['autosync_hash'];
+      }
+      if ( ! empty( $last_hash ) && wp_next_scheduled( 'wpqt/autosync', array( intval( $_user->ID ), $last_hash ) ) ) 
+        wp_clear_scheduled_hook( 'wpqt/autosync', array( intval( $_user->ID ), $last_hash ) );
+    }
   }
   
   /**
@@ -1515,23 +1648,67 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
    * @return void
    */
   public function wpqt_autosync( $user_id=null, $hash=null ) {
-    if ( empty( $user_id ) || empty( $hash ) ) 
+    if ( empty( $user_id ) ) 
       return;
     
+    if ( empty( $hash ) ) 
+      $hash = $this->options['autosync_hash'];
+    
+    $_timezone = get_option( 'timezone_string' );
+    date_default_timezone_set( $_timezone );
+    
     $current_user_meta = get_user_meta( $user_id, 'wpqt_qiita_authenticated_user', true );
+    $last_autosync_datetime = $this->options['autosync_datetime'];
     if ( is_array( $current_user_meta ) && array_key_exists( 'access_token', $current_user_meta ) && ! empty( $current_user_meta['access_token'] ) ) {
       // Autosync processes
       
+      $latest_user_stats = $this->retrieve_authenticated_user_profile( $user_id );
+      $total_items = $latest_user_stats['items_count'];
+      if ( $total_items > 0 ) {
+        // Get Qiita items
+        $_api_calls = ceil( $total_items / 100 );
+        $_api_calls = $_api_calls > 100 ? 100 : intval( $_api_calls );
+        $_current_page = 1;
+        $_per_page = 100;
+        
+        $_timezone = get_option( 'timezone_string' );
+        date_default_timezone_set( $_timezone );
+        
+        while ($_api_calls > 0) {
+          $_items = $this->get_authenticated_user_items( $_current_page, $_per_page );
+          foreach ($_items as $_i => $_item) {
+            $post_id = $this->wpqt_upsert_post( $user_id, $_item );
+            
+            $_post_meta = array(
+              'item_id' => $_item->id, 
+              'markdown_body' => $_item->body, 
+              'coediting' => strval( $_item->coediting ), 
+              'origin_url' => $_item->url, 
+              'stocks' => $this->get_item_stocks( $_item->id, $post_id ), 
+            );
+            foreach ( $_post_meta as $_key => $_value ) {
+              update_post_meta( $post_id, 'wpqt_' . $_key, $_value );
+            }
+          }
+          $_current_page++;
+          $_api_calls--;
+        }
+        $this->update_user_contribution( $user_id );
+      }
+      if ( $this->debug_mode ) 
+        $this->logger( time() . ' Autosync done!', 3 );
       
-      // Remove current schedule
-      wp_unschedule_event( $current_user_meta['autosync_datetime'], 'wpqt/autosync', array( $user_id, $hash ) );
+      if ( wp_next_scheduled( 'wpqt/autosync', array( $user_id, $hash ) ) ) {
+        // Remove current schedule
+        wp_unschedule_event( $last_autosync_datetime, 'wpqt/autosync', array( $user_id, $hash ) );
+      }
       
       // Set new schedule
-      $_new_hash = $this->set_autosync_schedule( $user_id, $current_user_meta['autosync_interval'] );
+      $_new_hash = $this->set_autosync_schedule( $user_id, $this->options['autosync_interval'] );
       $_autosync_datetime = wp_next_scheduled( 'wpqt/autosync', array( $user_id, $_new_hash ) );
       $update_autosync = array( 'autosync_datetime' => $_autosync_datetime, 'autosync_hash' => $_new_hash );
-      $_new_user_meta = array_merge( $current_user_meta, $update_autosync );
-      update_user_meta( $user_id, 'wpqt_qiita_authenticated_user', $_new_user_meta );
+      $this->options = array_merge( $this->options, $update_autosync );
+      update_option( $this->domain_name . '-options', $this->options );
     }
     
     return;
@@ -1569,9 +1746,12 @@ var_dump([ $_shortcode, has_shortcode( $post->post_content, $_shortcode ) ]);
     if (!in_array(intval($logging_type), [ 0, 1, 3, 4 ])) 
       $logging_type = 3;
     
-    $current_datetime = date('Y-m-d H:i:s', time());
-    $message = preg_replace( '/(?:\n|\r|\r\n)/', ' ', trim($message) );
-    $log_message = sprintf("[%s] %s\n", $current_datetime, $message);
+    $_timezone = get_option( 'timezone_string' );
+    date_default_timezone_set( $_timezone );
+    
+    $current_datetime = date( 'Y-m-d H:i:s', time() );
+    $message = preg_replace( '/(?:\n|\r|\r\n)/', ' ', trim( $message ) );
+    $log_message = sprintf( "[%s] %s\n", $current_datetime, $message );
     
     if (3 == intval($logging_type)) {
       $this->log_distination_path = empty($message) || '' === trim($distination) ? $this->plugin_dir_path . 'debug.log' : $distination;

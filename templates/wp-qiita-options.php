@@ -1,11 +1,15 @@
 <?php
 $_local_code = defined('WPLANG') ? '-' . WPLANG : '';
 
+/*
 global $user_ID;
 get_currentuserinfo();
 
 if ( $this->check_current_activated( $user_ID ) ) {
-  $_qiita_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
+*/
+if ( $this->check_current_activated( $this->current_user ) ) {
+//  $_qiita_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
+  $_qiita_user_meta = $this->user_options;
   $_is_activated = ! is_array( $_qiita_user_meta ) || ! array_key_exists( 'activated', $_qiita_user_meta ) || ! wp_validate_boolean( $_qiita_user_meta['activated'] ) ? false : true;
 } else {
   $_is_activated = false;
@@ -26,7 +30,8 @@ if ( $_is_activated ) {
   $tmpl_current_tab = array_key_exists( 'tab', $this->query ) ? $this->query['tab'] : 'activation';
 }
 
-$wpqt_nonce_action = implode( '/', array( site_url(), $this->domain_name, $user_ID, $this->query['page'] ) );
+//$wpqt_nonce_action = implode( '/', array( site_url(), $this->domain_name, $user_ID, $this->query['page'] ) );
+$wpqt_nonce_action = implode( '/', array( site_url(), $this->domain_name, $this->current_user, $this->query['page'] ) );
 
 ?>
 <div id="wp-qiita-options">
@@ -38,7 +43,7 @@ $wpqt_nonce_action = implode( '/', array( site_url(), $this->domain_name, $user_
   <form method="post" action="<?php echo add_query_arg('tab', $tmpl_current_tab); ?>" id="wp-qiita-admin-form">
     <input type="hidden" name="active_tab" value="<?php echo $tmpl_current_tab; ?>">
     <input type="hidden" name="action" value="">
-    <input type="hidden" name="user_id" value="<?php echo $user_ID; ?>">
+    <input type="hidden" name="user_id" value="<?php echo $this->current_user; ?>">
   <?php wp_nonce_field( $wpqt_nonce_action ); ?>
   </form><!-- /#wp-qiita-admin-form -->
   
@@ -232,6 +237,28 @@ if ( 'activation' === $tmpl_current_tab ) :
       </div><!-- /#accordion-->
 <?php else : 
 
+// Set defaults
+extract( array(
+  '_load_jquery' => isset( $_qiita_user_meta['load_jquery'] ) ? wp_validate_boolean( $_qiita_user_meta['load_jquery'] ) : true, 
+  '_show_posttype' => isset( $_qiita_user_meta['show_posttype'] ) ? wp_validate_boolean( $_qiita_user_meta['show_posttype'] ) : false, 
+  '_autosync' => isset( $_qiita_user_meta['autosync'] ) ? wp_validate_boolean( $_qiita_user_meta['autosync'] ) : false, 
+  '_autosync_interval' => isset( $_qiita_user_meta['autosync_interval'] ) && intval( $_qiita_user_meta['autosync_interval'] ) > 0 ? intval( $_qiita_user_meta['autosync_interval'] ) : '', 
+  '_autosync_status' => __('Undefined', $this->domain_name), 
+  '_autopost' => isset( $_qiita_user_meta['autopost'] ) ? wp_validate_boolean( $_qiita_user_meta['autopost'] ) : false, 
+  '_remove_post' => isset( $_qiita_user_meta['remove_post'] ) ? wp_validate_boolean( $_qiita_user_meta['remove_post'] ) : false, 
+  '_deactivate_qiita' => isset( $_qiita_user_meta['deactivate_qiita'] ) ? wp_validate_boolean( $_qiita_user_meta['deactivate_qiita'] ) : false, 
+) );
+foreach ( $this->options as $_key => $_val ) {
+  $_{$_key} = $_val;
+}
+if ( isset( $this->options['autosync_datetime'] ) && ! empty( $this->options['autosync_datetime'] ) ) {
+  $_timezone = get_option( 'timezone_string' );
+  date_default_timezone_set( $_timezone );
+  $_next_autosync = date_i18n( 'Y-m-d H:i', $this->options['autosync_datetime'], false );
+  $_autosync_status = sprintf( __('Next autosync will be executed at %s.', $this->domain_name), '<time>'. $_next_autosync .'</time>' );
+}
+/*
+$_load_jquery = isset( $_qiita_user_meta['load_jquery'] ) ? wp_validate_boolean( $_qiita_user_meta['load_jquery'] ) : false;
 $_show_posttype = isset( $_qiita_user_meta['show_posttype'] ) ? wp_validate_boolean( $_qiita_user_meta['show_posttype'] ) : false;
 $_autosync = isset( $_qiita_user_meta['autosync'] ) ? wp_validate_boolean( $_qiita_user_meta['autosync'] ) : false;
 $_autosync_interval = isset( $_qiita_user_meta['autosync_interval'] ) && intval( $_qiita_user_meta['autosync_interval'] ) > 0 ? intval( $_qiita_user_meta['autosync_interval'] ) : '';
@@ -244,6 +271,7 @@ if ( isset( $_qiita_user_meta['autosync_datetime'] ) && ! empty( $_qiita_user_me
 $_autopost = isset( $_qiita_user_meta['autopost'] ) ? wp_validate_boolean( $_qiita_user_meta['autopost'] ) : false;
 $_remove_post = isset( $_qiita_user_meta['remove_post'] ) ? wp_validate_boolean( $_qiita_user_meta['remove_post'] ) : false;
 $_deactivate_qiita = isset( $_qiita_user_meta['deactivate_qiita'] ) ? wp_validate_boolean( $_qiita_user_meta['deactivate_qiita'] ) : false;
+*/
 ?>
       <h3 class="text-success"><?php _e('Currently, already Activated.', $this->domain_name); ?></h3>
       
@@ -267,6 +295,17 @@ $_deactivate_qiita = isset( $_qiita_user_meta['deactivate_qiita'] ) ? wp_validat
         <div class="form-horizontal">
           <input type="hidden" id="wpqt-advanced_setting" name="<?php echo esc_attr($this->domain_name); ?>[advanced_setting]" value="true">
           <div class="form-group">
+            <label for="wpqtLoadJquery" class="col-sm-2 control-label"><?php _e('For Loading jQuery', $this->domain_name); ?></label>
+            <div class="col-sm-10">
+              <div class="checkbox">
+                <label>
+                  <input type="checkbox" id="wpqtLoadJquery" name="<?php echo esc_attr($this->domain_name); ?>[load_jquery]" <?php checked( $_load_jquery, true ); ?>> <?php _e('Checked if performing jQuery loading to the frontend by this plugin (it is loaded via CDN when enabled).', $this->domain_name); ?>
+                </label>
+              </div>
+              <p class="help-block"><?php _e('Please load on yourself separately it (for example is in the theme) if you want to use jQuery when has disabled.', $this->domain_name); ?></p>
+            </div>
+          </div><!-- /.form-group:#wpqtLoadJquery -->
+          <div class="form-group">
             <label for="wpqtShowPosttype" class="col-sm-2 control-label"><?php _e('Show Post Type', $this->domain_name); ?></label>
             <div class="col-sm-10">
               <div class="checkbox">
@@ -289,10 +328,10 @@ $_deactivate_qiita = isset( $_qiita_user_meta['deactivate_qiita'] ) ? wp_validat
           <div class="form-group">
             <label for="wpqtAutosyncInterval" class="col-sm-2 control-label"><?php _e('Autosync Interval', $this->domain_name); ?></label>
             <div class="col-sm-2">
-              <input type="text" class="form-control" id="wpqtAutosyncInterval" aria-describedby="helpAutosyncInterval" name="<?php echo esc_attr($this->domain_name); ?>[autosync_interval]" placeholder="86400 (=1day)" value="<?php echo $_autosync_interval; ?>">
+              <input type="text" class="form-control" id="wpqtAutosyncInterval" aria-describedby="helpAutosyncInterval" name="<?php echo esc_attr($this->domain_name); ?>[autosync_interval]" placeholder="14400 (=4hour)" value="<?php echo $_autosync_interval; ?>">
             </div>
             <div class="col-sm-offset-2 col-sm-10">
-              <span id="helpAutosyncInterval" class="help-block"><?php _e('There is a possibility when it will be not able to synchronize by the connection restriction of  the Qiita if you set too short interval. (Recommend about once a day)', $this->domain_name); ?></span>
+              <span id="helpAutosyncInterval" class="help-block"><?php _e('There is a possibility when it will be not able to synchronize by the connection restriction of  the Qiita if you set too short interval. (Every 4 hours is recommended)', $this->domain_name); ?></span>
             </div>
           </div><!-- /.form-group:#wpqtAutosyncInterval -->
         <?php if ( $_autosync ) : ?>
@@ -399,7 +438,7 @@ $_deactivate_qiita = isset( $_qiita_user_meta['deactivate_qiita'] ) ? wp_validat
       
 <?php
 if ( ! array_key_exists( 'id', $_qiita_user_meta ) ) {
-  $_qiita_user_meta = $this->retrieve_authenticated_user_profile( $user_ID );
+  $_qiita_user_meta = $this->retrieve_authenticated_user_profile( $this->current_user );
 }
 $_name_elements = explode( ' ', $_qiita_user_meta['name'] );
 $first_name = isset( $_name_elements[0] ) && ! empty( $_name_elements[0] ) ? $_name_elements[0] : '';
@@ -587,7 +626,7 @@ if ( isset( $_qiita_user_meta['contribution'] ) || ! empty( $_qiita_user_meta['c
 $current_page = array_key_exists('cp', $this->query) && !empty($this->query['cp']) && intval($this->query['cp']) > 0 ? intval($this->query['cp']) : 1;
 $per_page = array_key_exists('pp', $this->query) && !empty($this->query['pp']) && intval($this->query['pp']) > 0 ? intval($this->query['pp']) : 20;
 $start_index = ($current_page - 1) * $per_page;
-$_items = get_posts( array( 'posts_per_page' => $per_page, 'offset' => $start_index, 'post_type' => $this->domain_name, 'author' => $user_ID, 'post_status' => 'publish,private,draft' ) );
+$_items = get_posts( array( 'posts_per_page' => $per_page, 'offset' => $start_index, 'post_type' => $this->domain_name, 'author' => $this->current_user, 'post_status' => 'publish,private,draft' ) );
 $_indices = array(
   'index' => '#', 
   'title' => __('Title', $this->domain_name), 
@@ -769,7 +808,16 @@ $shortcode_examples = array(
         </div>
         <div class="panel-body">
           <?php _e('After you have cooperation with Qiita via this plugin, following widgets will be available.', $this->domain_name); ?>
-          <span class="text-muted"><?php _e('In Preparation', $this->domain_name); ?></span>
+          <ul class="list-inline" id="wpqt-widget-1">
+            <li><figure id="wpqt-widget-1-view">
+              <img src="<?php echo $this->plugin_dir_url; ?>/assets/images/wpqt-widget-view.png">
+              <figcaption><?php _e('WP Qiita Widget View', $this->domain_name); ?></figcaption>
+            </figure></li>
+            <li><figure id="wpqt-widget-1-setting">
+              <img src="<?php echo $this->plugin_dir_url; ?>/assets/images/wpqt-widget-setting.png">
+              <figcaption><?php _e('WP Qiita Widget Settings', $this->domain_name); ?></figcaption>
+            </figure></li>
+          </ul>
         </div>
       </div>
       

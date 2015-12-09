@@ -8,7 +8,7 @@ class WpQiitaWidget extends WP_Widget {
   var $fields;
   var $widget_name;
   var $widget_slug;
-  var $wpqt;
+  var $widget_cache = false;
   
   public function __construct() {
     $this->widget_name = __( 'WP-Qiita Widget', WPQT ); // Labeled
@@ -19,9 +19,11 @@ class WpQiitaWidget extends WP_Widget {
     parent::__construct( $widget_options['classname'], $this->widget_name, $widget_options );
     $this->widget_slug = $widget_options['classname'];
     
-    add_action( 'save_post', array( &$this, 'flush_widget_cache' ) );
-    add_action( 'delete_post', array( &$this, 'flush_widget_cache' ) );
-    add_action( 'switch_theme', array( &$this, 'flush_widget_cache' ) );
+    if ( $this->widget_cache ) {
+      add_action( 'save_post', array( &$this, 'flush_widget_cache' ) );
+      add_action( 'delete_post', array( &$this, 'flush_widget_cache' ) );
+      add_action( 'switch_theme', array( &$this, 'flush_widget_cache' ) );
+    }
     
     // Set Fields
     $this->fields = array(
@@ -37,10 +39,12 @@ class WpQiitaWidget extends WP_Widget {
   }
   
   public function widget( $args, $instance ) {
-    $cache = wp_cache_get( $this->widget_slug, 'widget' );
-    
-    if ( ! is_array( $cache ) ) 
-      $cache = array();
+    if ( $this->widget_cache ) {
+      $cache = wp_cache_get( $this->widget_slug, 'widget' );
+      
+      if ( ! is_array( $cache ) ) 
+        $cache = array();
+    }
     
     if ( ! isset( $args['widget_id'] ) ) 
       $args['widget_id'] = null;
@@ -51,11 +55,9 @@ class WpQiitaWidget extends WP_Widget {
     }
     
     // Retrive Specific Posts
-    global $wpqt;
-    //$this->wpqt = is_object( $wpqt ) && ! empty( $wpqt ) ? $wpqt : WpQiitaMain::instance();
     $_args = array(
       'posts_per_page' => $instance['display_limit'], 
-      'post_type' => $wpqt->domain_name, 
+      'post_type' => WPQT, 
       'post_status' => str_replace( '+', ',', $instance['display_state'] ), 
       'orderby' => 'stocks' === $instance['sort_by'] ? 'date' : $instance['sort_by'], 
       'order' => strtoupper( $instance['sort_order'] ), 
@@ -76,7 +78,6 @@ class WpQiitaWidget extends WP_Widget {
     $_posts = get_posts( $_args );
     if ( ! empty( $_posts ) ) {
       
-      
       ob_start();
       extract( $args, EXTR_SKIP );
       
@@ -89,18 +90,21 @@ class WpQiitaWidget extends WP_Widget {
       }
       
       echo $before_widget;
-      if ( $display_title ) 
-        echo $before_title, $wpqt->the_custom_icon( array( 'id'=>3 ), '' ), do_shortcode( $display_title ), $after_title;
+      if ( $display_title ) {
+        $_render_title = '[wpqt-icon id="3"] ' . $display_title;
+        echo $before_title, do_shortcode( $_render_title ), $after_title;
+      }
       
       $render_container_class = apply_filters( 'wpqt/widget_container_class', 'wpqt-container', $instance, $args['widget_id'] );
       $render_list_class = apply_filters( 'wpqt/widget_list_class', 'wpqt-list-'. $instance['sort_by'], $instance, $args['widget_id'] );
-      $render_var_class = apply_filters( 'wpqt/widget_var_class', 'count', $instance, $args['widget_id'] ); ?>
-<div class="<?php echo $display_content_class; ?>">
-  <ul>
+      $render_var_class = apply_filters( 'wpqt/widget_var_class', 'stocks', $instance, $args['widget_id'] );
+      $stock_unit = apply_filters( 'wpqt/widget_stock_unit', __(' Stock', WPQT ), $instance, $args['widget_id'] ); ?>
+<div class="<?php echo $render_container_class; ?>">
+  <ul class="<?php echo $render_list_class; ?>">
   <?php foreach ( $_posts as $_post ) : ?>
     <li>
       <a href="<?php echo get_post_meta( $_post->ID, 'wpqt_origin_url', true ); ?>" target="_blank"><?php echo $_post->post_title; ?></a>
-    <?php if ( $instance['show_stocks'] ) : ?><var class="count"><?php echo get_post_meta( $_post->ID, 'wpqt_stocks', true ); ?></var><?php endif; ?>
+    <?php if ( $instance['show_stocks'] ) : ?><var class="<?php echo $render_var_class; ?>"><?php echo get_post_meta( $_post->ID, 'wpqt_stocks', true ); ?><?php echo $stock_unit; ?></var><?php endif; ?>
     </li>
   <?php endforeach; ?>
   </ul>
@@ -108,8 +112,12 @@ class WpQiitaWidget extends WP_Widget {
 <?php
       echo $after_widget;
       
-      $cache[$args['widget_id']] = ob_get_flush();
-      wp_cache_set( $this->widget_slug, $cache, 'widget' );
+      if ( $this->widget_cache ) {
+        $cache[$args['widget_id']] = ob_get_flush();
+        wp_cache_set( $this->widget_slug, $cache, 'widget' );
+      } else {
+        ob_end_flush();
+      }
     }
   }
   
@@ -123,11 +131,12 @@ class WpQiitaWidget extends WP_Widget {
     $instance['sort_order'] = trim( $new_instance['sort_order'] );
     $instance['show_stocks'] = wp_validate_boolean( trim( $new_instance['show_stocks'] ) );
     
-    $this->flush_widget_cache();
-    $alloptions = wp_cache_get( 'alloptions', 'options' );
-    if ( isset( $alloptions[$this->widget_slug] ) ) 
-      delete_option( $this->widget_slug );
-    
+    if ( $this->widget_cache ) {
+      $this->flush_widget_cache();
+      $alloptions = wp_cache_get( 'alloptions', 'options' );
+      if ( isset( $alloptions[$this->widget_slug] ) ) 
+        delete_option( $this->widget_slug );
+    }
     return $instance;
     
   }
