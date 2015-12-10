@@ -105,12 +105,6 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     add_action( 'after_setup_theme', array( $this, 'wpqt_setup_theme' ) );
     add_action( 'plugins_loaded', array( $this, 'wpqt_plugin_loaded' ) );
     add_action( 'init', array( $this, 'wpqt_init' ) );
-    if ( ! post_type_exists( $this->domain_name ) ) {
-      // Register a wp-qiita post type.
-      // 
-      // @link http://codex.wordpress.org/Function_Reference/register_post_type
-      add_action( 'init', array( $this, 'create_post_type' ) );
-    }
     add_action( 'widgets_init', array( $this, 'wpqt_widgets' ) );
     add_action( 'wp_loaded', array( $this, 'wpqt_wp_loaded' ) ); // Fired once WordPress, all plugins, and the theme are fully loaded
     add_action( 'wpqt/autosync', array( $this, 'wpqt_autosync' ) ); // Add New Action
@@ -118,6 +112,7 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     if ( is_admin() ) {
       add_action( 'admin_menu', array( $this, 'wpqt_admin_menu' ) );
       add_action( 'admin_init', array( $this, 'wpqt_admin_init' ) );
+      add_action( 'manage_posts_custom_column', array( $this, 'add_stocks_column_content' ), 10, 2);
       add_action( 'pre_get_posts', array( $this, 'wpqt_pre_get_posts' ) );
       add_action( 'admin_enqueue_scripts', array( $this, 'wpqt_enqueue_scripts' ) );
       add_action( 'admin_head', array( $this, 'wpqt_head' ) );
@@ -127,9 +122,11 @@ final class WpQiitaMain extends WpQiitaShortcodes {
       add_action( 'admin_print_footer_scripts', array( $this, 'wpqt_print_footer_scripts' ) ); // For modal insertion
       
       // Filters
+      add_filter( 'manage_posts_columns', array( $this, 'add_stocks_column' ) );
+      add_filter( 'manage_edit-'. $this->domain_name .'_sortable_columns', array( $this, 'stocks_column_sort' ) );
+      add_filter( 'request', array( $this, 'stocks_column_orderby' ) );
       add_filter( 'plugin_action_links', array( $this, 'modify_plugin_action_links' ), 10, 2 );
       add_filter( 'admin_body_class', array( $this, 'add_body_classes' ) );
-      add_filter( 'wpqt/register_post_type', array( $this, 'wpqt_custom_post_type' ) );
       
     } else {
       add_action( 'pre_get_posts', array( $this, 'wpqt_pre_get_posts' ) );
@@ -168,9 +165,6 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     // Set ajax action name
     $this->plugin_ajax_action = 'wpqt_ajax_handler';
     
-    // Shortcodes initialize
-    $this->register_shortcodes();
-    
     // Set current query strings
     if (is_admin()) {
       wp_parse_str( $_SERVER['QUERY_STRING'], $this->query );
@@ -183,6 +177,16 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     get_currentuserinfo();
     $this->current_user = $user_ID; // guest is `0`
     $this->user_options = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true ); // guest is `false`
+    
+    if ( ! post_type_exists( $this->domain_name ) ) {
+      // Register a wp-qiita post type.
+      // 
+      // @link http://codex.wordpress.org/Function_Reference/register_post_type
+      $this->create_post_type();
+    }
+    
+    // Shortcodes initialize
+    $this->register_shortcodes();
     
     // Session initialize
     if (!session_id()) 
@@ -272,25 +276,6 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     // Currently do nothing
   }
   
-  public function wpqt_custom_post_type( $args ) {
-/*
-    global $user_ID;
-    get_currentuserinfo();
-    
-    $current_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
-    if ( isset( $current_user_meta['show_posttype'] ) ) {
-      $args['show_in_menu'] = $current_user_meta['show_posttype'];
-*/
-    if ( isset( $this->options['show_posttype'] ) ) {
-      $args['show_in_menu'] = $this->options['show_posttype'];
-    } else
-    if ( isset( $this->user_options['show_posttype'] ) ) {
-      $args['show_in_menu'] = $this->user_options['show_posttype'];
-    } else {
-      $args['show_in_menu'] = false;
-    }
-    return $args;
-  }
   
   public function wpqt_footer() {
     // Currently do nothing
@@ -359,6 +344,36 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     
     register_setting( 'wp-qiita', $this->domain_name );
     
+  }
+  
+  public function add_stocks_column( $defaults ) {
+    if ( $this->domain_name === get_post_type() ) {
+      $defaults['stocks'] = __( 'Stocks', $this->domain_name );
+    }
+    return $defaults;
+  }
+  
+  public function add_stocks_column_content( $column_name, $post_ID ) {
+    if ($column_name == 'stocks') {
+      $_numeric = get_post_meta( $post_ID, 'wpqt_stocks', true );
+      $_stocks = number_format_i18n( $_numeric ? $_numeric : 0 );
+      echo $_stocks;
+    }
+  }
+  
+  public function stocks_column_sort( $columns ) {
+    $columns['stocks'] = 'stocks';
+    return $columns;
+  }
+  
+  public function stocks_column_orderby( $vars ) {
+    if ( isset( $vars['orderby'] ) && 'stocks' === $vars['orderby'] ) {
+      $vars = array_merge( $vars, array(
+        'meta_key' => 'wpqt_stocks', 
+        'orderby'  => 'meta_value_num', 
+      ) );
+    }
+    return $vars;
   }
   
   public function modify_plugin_action_links( $links, $file ) {
@@ -451,12 +466,6 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     $_message_type = $this->message_type['err'];
     $_message = null;
     
-/*
-    global $user_ID;
-    get_currentuserinfo();
-    
-    $verify_nonce_action = implode('/', array(site_url(), $this->domain_name, $user_ID, $this->query['page']));
-*/
     $verify_nonce_action = implode( '/', array( site_url(), $this->domain_name, $this->current_user, $this->query['page'] ) );
     
     if ( ! empty( $GLOBALS['_POST'] ) ) {
@@ -827,12 +836,6 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     $this->retrieve_authenticated_user_profile( $submit_data['user_id'] );
     
     if ( count_user_posts( $submit_data['user_id'], $this->domain_name, false) > 0 ) {
-/*
-      $_contribution = $this->get_contribution( $submit_data['user_id'] );
-      $current_user_meta = get_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', true );
-      $_new_user_meta = array_merge( $current_user_meta, array( 'contribution' => $_contribution ) );
-      update_user_meta( $submit_data['user_id'], 'wpqt_qiita_authenticated_user', $_new_user_meta );
-*/
       $this->update_user_contribution( $submit_data['user_id'] );
     }
     
@@ -1050,13 +1053,6 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     }
     $per_page = intval( $per_page ) > 100 ? 100 : intval( $per_page );
     
-/*
-    global $user_ID;
-    get_currentuserinfo();
-    
-    $current_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
-    $this->token = empty( $this->token ) ? $current_user_meta['access_token'] : $this->token;
-*/
     $this->token = empty( $this->token ) ? $this->user_options['access_token'] : $this->token;
     $url = $this->get_api_url( array( 'authenticated_user', 'items' ), array( 'page'=>$page, 'per_page'=>$per_page ) );
     if ( method_exists( $this, 'request_api' ) ) {
@@ -1096,13 +1092,6 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     if ( empty( $item_id ) ) 
       return false;
     
-/*
-    global $user_ID;
-    get_currentuserinfo();
-    
-    $current_user_meta = get_user_meta($user_ID, 'wpqt_qiita_authenticated_user', true);
-    $this->token = empty( $this->token ) ? $current_user_meta['access_token'] : $this->token;
-*/
     $this->token = empty( $this->token ) ? $this->user_options['access_token'] : $this->token;
     $url = $this->get_api_url( array( 'items', $item_id ) );
     if ( method_exists( $this, 'request_api' ) ) {
@@ -1145,12 +1134,6 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     if (empty($item_id)) 
       return $stocks;
     
-/*
-    global $user_ID;
-    get_currentuserinfo();
-    
-    $current_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
-*/
     if ( empty( $post_id ) || $post_id < 1 ) {
       $_posts = get_posts( array(
         'numberposts' => -1, 
@@ -1346,7 +1329,7 @@ final class WpQiitaMain extends WpQiitaShortcodes {
       'public'             => true,
       'publicly_queryable' => true,
       'show_ui'            => true,
-      'show_in_menu'       => false,
+      'show_in_menu'       => isset( $this->options['show_posttype'] ) ? $this->options['show_posttype'] : false,
       'query_var'          => true,
       'rewrite'            => array( 'slug' => $this->domain_name ),
       'capability_type'    => 'post',
@@ -1474,24 +1457,6 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     if ( ! current_user_can( 'activate_plugins' ) ) 
       return;
     
-/*
-    global $user_ID;
-    get_currentuserinfo();
-    
-    $_update_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
-    if ( isset( $_update_user_meta['deactivate_qiita'] ) && $_update_user_meta['deactivate_qiita'] ) {
-      foreach ( $_update_user_meta as $_key => $_val ) {
-        if ( in_array( $_key, array( 'activated', 'load_jquery', 'show_posttype', 'autosync', 'autosync_interval', 'remove_post', 'deactivate_qiita' ) ) ) {
-          if ( 'activated' === $_key ) 
-            $_update_user_meta[$_key] = false;
-        } else {
-          unset( $_update_user_meta[$_key] );
-        }
-      }
-      update_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', $_update_user_meta );
-      $this->remove_posts_in_post_type( $this->domain_name, $user_ID );
-    }
-*/
     if ( isset( $this->options['deactivate_qiita'] ) && $this->options['deactivate_qiita'] ) {
       foreach ( $this->options as $_key => $_val ) {
         if ( in_array( $_key, array( 'activated', 'load_jquery', 'show_posttype', 'autosync', 'autosync_interval', 'remove_post', 'deactivate_qiita' ) ) ) {
@@ -1529,11 +1494,6 @@ final class WpQiitaMain extends WpQiitaShortcodes {
     if ( $this->plugin_main_file !== WP_UNINSTALL_PLUGIN ) 
       return;
     
-/*
-    global $user_ID;
-    get_currentuserinfo();
-    delete_user_meta( $user_ID, 'wpqt_qiita_authenticated_user' );
-*/
     delete_user_meta( $this->current_user, 'wpqt_qiita_authenticated_user' );
     $this->remove_posts_in_post_type( $this->domain_name );
     

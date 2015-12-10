@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: WP Qiita 1.0.0\n"
-"POT-Creation-Date: 2015-12-09 17:36+0900\n"
+"POT-Creation-Date: 2015-12-10 14:32+0900\n"
 "PO-Revision-Date: \n"
 "Last-Translator: ka2 <ka2@ka2.org>\n"
 "Language-Team: ka2 <ka2@ka2.org>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "X-Poedit-SearchPath-0: .\n"
 "X-Poedit-SearchPathExcluded-0: debug.log\n"
 
-#: external_translated_text.php:4 lib/main.php:350 lib/main.php:1462
+#: external_translated_text.php:4 lib/main.php:335 lib/main.php:1477
 msgid "WP Qiita"
 msgstr "WP Qiita"
 
@@ -45,47 +45,51 @@ msgstr "Google+ ID"
 msgid "Error locating %s for inclusion"
 msgstr "インクルードパス %s のエラー"
 
-#: lib/main.php:313
+#: lib/main.php:298
 msgid "Close"
 msgstr "閉じる"
 
-#: lib/main.php:314 templates/wp-qiita-options.php:378
+#: lib/main.php:299 templates/wp-qiita-options.php:378
 msgid "Save changes"
 msgstr "変更を保存"
 
-#: lib/main.php:349 templates/wp-qiita-options.php:39
+#: lib/main.php:334 templates/wp-qiita-options.php:39
 msgid "WP Qiita General Options"
 msgstr "WP Qiita 各種設定"
 
-#: lib/main.php:374
+#: lib/main.php:351 lib/widgets.php:189 templates/wp-qiita-options.php:633
+msgid "Stocks"
+msgstr "ストック数"
+
+#: lib/main.php:389
 msgid "Settings"
 msgstr "設定"
 
-#: lib/main.php:481 lib/main.php:485 lib/main.php:500
+#: lib/main.php:496 lib/main.php:500 lib/main.php:515
 msgid "Invalid access this page."
 msgstr "このページへのアクセスが不正です。"
 
-#: lib/main.php:551 lib/main.php:651
+#: lib/main.php:566 lib/main.php:666
 msgid "Required data are not sent."
 msgstr "必要なデータが送信されていません。"
 
-#: lib/main.php:554
+#: lib/main.php:569
 msgid "Client ID is not specified."
 msgstr "クライアントIDが指定されていません。"
 
-#: lib/main.php:557
+#: lib/main.php:572
 msgid "Scopes is not specifed"
 msgstr "スコープ（権限）が指定されていません。"
 
-#: lib/main.php:594
+#: lib/main.php:609
 msgid "Alternative code to get access token does not exist."
 msgstr "アクセストークンを取得するための代替コードがありません。"
 
-#: lib/main.php:623 lib/main.php:683
+#: lib/main.php:638 lib/main.php:698
 msgid "Activation successful. You will work with Qiita."
 msgstr "Qiitaとの連携に成功しました。"
 
-#: lib/main.php:627
+#: lib/main.php:642
 #, php-format
 msgid ""
 "Your request has been response of \"%s\". Please check again whether there "
@@ -94,11 +98,11 @@ msgstr ""
 "あなたのリクエストへの応答は「%s」でした。設定値に誤りがないかどうかもう一度"
 "確認してください。"
 
-#: lib/main.php:654
+#: lib/main.php:669
 msgid "Access token is not specified."
 msgstr "アクセストークンが指定されていません。"
 
-#: lib/main.php:687
+#: lib/main.php:702
 #, php-format
 msgid ""
 "Your request has been response of \"%s\". Please check again whether there "
@@ -107,104 +111,104 @@ msgstr ""
 "あなたのリクエストへの応答は「%s」でした。アクセストークンに誤りがないかどう"
 "かもう一度確認してください。"
 
-#: lib/main.php:721
+#: lib/main.php:736
 msgid "Inactivation successful."
 msgstr "連携を解除しました。"
 
-#: lib/main.php:725
+#: lib/main.php:740
 msgid "Inactivation fails."
 msgstr "連携の解除に失敗しました。"
 
-#: lib/main.php:771
+#: lib/main.php:786
 msgid "Configuration has been changed successfully."
 msgstr "設定を変更しました。"
 
-#: lib/main.php:775
+#: lib/main.php:790
 msgid "Configuration changes did not take place."
 msgstr "設定の変更は行われませんでした。"
 
-#: lib/main.php:803
+#: lib/main.php:818
 msgid "The profile of Qiita user it was synchronized to WordPress user."
 msgstr "QiitaユーザーのプロフィールをWordPressユーザーに同期しました。"
 
-#: lib/main.php:807
+#: lib/main.php:822
 msgid "Synchronization of the profile was not done."
 msgstr "プロフィールの同期は行われませんでした。"
 
-#: lib/main.php:887
+#: lib/main.php:902
 msgid "Authenticated user does not have articles to Qiita."
 msgstr "認証されたユーザーには、Qiitaの記事がありません。"
 
-#: lib/main.php:945
+#: lib/main.php:960
 msgid "Removed the post that is synchronized to WordPress."
 msgstr "WordPressへ同期されている投稿を削除しました。"
 
-#: lib/main.php:949
+#: lib/main.php:964
 msgid "Failed to delete the synchronized post."
 msgstr "同期された投稿の削除に失敗しました。"
 
-#: lib/main.php:1327 lib/main.php:1329
+#: lib/main.php:1342 lib/main.php:1344
 msgid "Qiita Articles"
 msgstr "Qiita記事"
 
-#: lib/main.php:1328 lib/main.php:1330
+#: lib/main.php:1343 lib/main.php:1345
 msgid "Qiita Article"
 msgstr "Qiita記事"
 
-#: lib/main.php:1331
+#: lib/main.php:1346
 msgid "Add New"
 msgstr "新規追加"
 
-#: lib/main.php:1332
+#: lib/main.php:1347
 msgid "Add New Article"
 msgstr "新規記事追加"
 
-#: lib/main.php:1333
+#: lib/main.php:1348
 msgid "New Article"
 msgstr "新規記事"
 
-#: lib/main.php:1334
+#: lib/main.php:1349
 msgid "Edit Article"
 msgstr "記事編集"
 
-#: lib/main.php:1335
+#: lib/main.php:1350
 msgid "View Article"
 msgstr "記事を見る"
 
-#: lib/main.php:1336
+#: lib/main.php:1351
 msgid "All Articles"
 msgstr "記事一覧"
 
-#: lib/main.php:1337
+#: lib/main.php:1352
 msgid "Search Articles"
 msgstr "記事を検索"
 
-#: lib/main.php:1338
+#: lib/main.php:1353
 msgid "Parent Articles:"
 msgstr "親記事:"
 
-#: lib/main.php:1339
+#: lib/main.php:1354
 msgid "No Articles found."
 msgstr "記事が見つかりません。"
 
-#: lib/main.php:1340
+#: lib/main.php:1355
 msgid "No Articles found in Trash."
 msgstr "ゴミ箱に記事が見つかりません。"
 
-#: lib/main.php:1345
+#: lib/main.php:1360
 msgid "Articles that are synchronized from Qiita."
 msgstr "Qiitaから同期されている記事"
 
-#: lib/main.php:1420 lib/main.php:1511 lib/main.php:1540
+#: lib/main.php:1435 lib/main.php:1526 lib/main.php:1555
 #, php-format
 msgid "Function called: %s; %s"
 msgstr "呼び出された関数: %s; %s"
 
-#: lib/main.php:1420
+#: lib/main.php:1435
 msgid "WP Qiita plugin has activated."
 msgstr "WP Qiitaプラグインを有効化しました。"
 
-#: lib/main.php:1446
+#: lib/main.php:1461
 #, php-format
 msgid ""
 "Your server is running PHP version %s but this plugin requires at least PHP "
@@ -213,25 +217,25 @@ msgstr ""
 "サーバのPHPバージョンが %s です。このプラグインの実行にはPHP %s 以上が必要で"
 "す。アップグレードしてください。"
 
-#: lib/main.php:1450
+#: lib/main.php:1465
 #, php-format
 msgid "Please install the extension %s to run this plugin."
 msgstr "このプラグインを実行するには %s 拡張をインストールしてください。"
 
-#: lib/main.php:1462
+#: lib/main.php:1477
 #, php-format
 msgid "The %s has been deactivated."
 msgstr "%s は停止されました。"
 
-#: lib/main.php:1511
+#: lib/main.php:1526
 msgid "WP Qiita plugin has been deactivation."
 msgstr "WP Qiitaプラグインは停止されました。"
 
-#: lib/main.php:1540
+#: lib/main.php:1555
 msgid "WP Qiita plugin uninstall now."
 msgstr "WP Qiitaプラグインをアンインストールします。"
 
-#: lib/main.php:1766
+#: lib/main.php:1781
 msgid "Failed to logging."
 msgstr "ログの出力に失敗しました。"
 
@@ -306,10 +310,6 @@ msgstr "更新日時"
 #: lib/widgets.php:188
 msgid "Comment Count"
 msgstr "コメント数"
-
-#: lib/widgets.php:189 templates/wp-qiita-options.php:633
-msgid "Stocks"
-msgstr "ストック数"
 
 #: lib/widgets.php:190
 msgid "Random"
@@ -864,29 +864,3 @@ msgstr "WP Qiita ウィジェット 表示例"
 #: templates/wp-qiita-options.php:818
 msgid "WP Qiita Widget Settings"
 msgstr "WP Qiita ウィジェット設定画面"
-
-#~ msgid ""
-#~ "There is a possibility when it will be not able to synchronize by the "
-#~ "connection restriction of  the Qiita if you set too short interval. "
-#~ "(Recommend about once a day)"
-#~ msgstr ""
-#~ "あまりにも短い間隔を設定するとQiitaの通信制限により自動同期できなくなる場"
-#~ "合があります。（推奨は1日1回程度）"
-
-#~ msgid "Synchronizing"
-#~ msgstr "同期状態"
-
-#~ msgid "During"
-#~ msgstr "同期中"
-
-#~ msgid "Unsynchronized"
-#~ msgstr "未同期"
-
-#~ msgid "Reacquire"
-#~ msgstr "再取得"
-
-#~ msgid ""
-#~ "\"Redirect URL\" Please specify the URL of the management screen of this "
-#~ "WP Qiita."
-#~ msgstr ""
-#~ "「リダイレクト先のURL」 は、WP Qiitaの管理画面のURLを指定してください。"

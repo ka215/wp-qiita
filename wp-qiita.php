@@ -34,7 +34,7 @@ define( 'WPQT_PLUGIN_VERSION', '1.0.0' );
 define( 'WPQT_DB_VERSION', '1.0' );
 define( 'WPQT', 'wp-qiita' ); // This plugin domain name
 
-define( 'WPQT_DEBUG', true ); // For toggle of debug mode
+define( 'WPQT_DEBUG', false ); // For toggle of debug mode
 
 require_once plugin_dir_path(__FILE__) . 'functions.php';
 

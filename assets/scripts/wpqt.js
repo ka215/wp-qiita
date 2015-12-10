@@ -50,6 +50,10 @@
         // Display modal on loaded
         if ($('#wpQiitaModal').size() === 1 && $('#messages').size() === 1) {
           $('#wpQiitaModal').find('.modal-body').html($('#messages').html()).end().modal('show');
+          $('#wpQiitaModal').on('hidden.bs.modal', function(e){
+            // window.location.href = e.currentTarget.baseURI;
+            window.location.reload();
+          });
         }
         
         // Display modal on whenever called
@@ -187,7 +191,7 @@
           if (is_submit) {
             $('.tab-pane.active').removeClass('loaded');
             $('.loader').css({ position: 'fixed', display: 'block' });
-            form.submit();
+            return form.submit();
           } else {
             return false;
           }

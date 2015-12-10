@@ -1,14 +1,7 @@
 <?php
 $_local_code = defined('WPLANG') ? '-' . WPLANG : '';
 
-/*
-global $user_ID;
-get_currentuserinfo();
-
-if ( $this->check_current_activated( $user_ID ) ) {
-*/
 if ( $this->check_current_activated( $this->current_user ) ) {
-//  $_qiita_user_meta = get_user_meta( $user_ID, 'wpqt_qiita_authenticated_user', true );
   $_qiita_user_meta = $this->user_options;
   $_is_activated = ! is_array( $_qiita_user_meta ) || ! array_key_exists( 'activated', $_qiita_user_meta ) || ! wp_validate_boolean( $_qiita_user_meta['activated'] ) ? false : true;
 } else {
@@ -30,7 +23,6 @@ if ( $_is_activated ) {
   $tmpl_current_tab = array_key_exists( 'tab', $this->query ) ? $this->query['tab'] : 'activation';
 }
 
-//$wpqt_nonce_action = implode( '/', array( site_url(), $this->domain_name, $user_ID, $this->query['page'] ) );
 $wpqt_nonce_action = implode( '/', array( site_url(), $this->domain_name, $this->current_user, $this->query['page'] ) );
 
 ?>
@@ -257,21 +249,6 @@ if ( isset( $this->options['autosync_datetime'] ) && ! empty( $this->options['au
   $_next_autosync = date_i18n( 'Y-m-d H:i', $this->options['autosync_datetime'], false );
   $_autosync_status = sprintf( __('Next autosync will be executed at %s.', $this->domain_name), '<time>'. $_next_autosync .'</time>' );
 }
-/*
-$_load_jquery = isset( $_qiita_user_meta['load_jquery'] ) ? wp_validate_boolean( $_qiita_user_meta['load_jquery'] ) : false;
-$_show_posttype = isset( $_qiita_user_meta['show_posttype'] ) ? wp_validate_boolean( $_qiita_user_meta['show_posttype'] ) : false;
-$_autosync = isset( $_qiita_user_meta['autosync'] ) ? wp_validate_boolean( $_qiita_user_meta['autosync'] ) : false;
-$_autosync_interval = isset( $_qiita_user_meta['autosync_interval'] ) && intval( $_qiita_user_meta['autosync_interval'] ) > 0 ? intval( $_qiita_user_meta['autosync_interval'] ) : '';
-if ( isset( $_qiita_user_meta['autosync_datetime'] ) && ! empty( $_qiita_user_meta['autosync_datetime'] ) ) {
-  $_next_autosync = date_i18n( 'Y-m-d H:i', $_qiita_user_meta['autosync_datetime'] + $_autosync_interval, false );
-  $_autosync_status = sprintf( __('Next autosync will be executed at %s.', $this->domain_name), '<time>'. $_next_autosync .'</time>' );
-} else {
-  $_autosync_status = __('Undefined', $this->domain_name);
-}
-$_autopost = isset( $_qiita_user_meta['autopost'] ) ? wp_validate_boolean( $_qiita_user_meta['autopost'] ) : false;
-$_remove_post = isset( $_qiita_user_meta['remove_post'] ) ? wp_validate_boolean( $_qiita_user_meta['remove_post'] ) : false;
-$_deactivate_qiita = isset( $_qiita_user_meta['deactivate_qiita'] ) ? wp_validate_boolean( $_qiita_user_meta['deactivate_qiita'] ) : false;
-*/
 ?>
       <h3 class="text-success"><?php _e('Currently, already Activated.', $this->domain_name); ?></h3>
       
